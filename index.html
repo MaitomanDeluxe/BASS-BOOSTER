@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bass Booster</title>
+    <title>Bass Booster with Visualizer</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -108,11 +108,42 @@
             font-style: italic;
             color: #bbb;
         }
+
+        #visualizer {
+            margin-top: 20px;
+            border-radius: 10px;
+            background-color: #222;
+        }
+
+        .visualizer-controls {
+            margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            align-items: center;
+        }
+
+        #colorPicker {
+            width: 50px;
+            height: 30px;
+            border: none;
+            cursor: pointer;
+            background-color: transparent;
+        }
+
+        #rainbowMode {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            border: none;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Bass Booster</h1>
+        <h1>Bass Booster with Visualizer</h1>
 
         <label for="audioFile" class="custom-file-upload">
             MP3ファイルをアップロード
@@ -121,6 +152,18 @@
         <div id="currentFileName">ファイルが選択されていません</div>
 
         <audio id="audioPlayer" controls></audio>
+
+        <canvas id="visualizer" width="400" height="400"></canvas>
+
+        <div class="visualizer-controls">
+            <label for="colorPicker">ビジュアライザーの色:</label>
+            <input type="color" id="colorPicker" value="#4CAF50">
+            <button id="rainbowMode">レインボーモード</button>
+            <label for="iconUpload" class="custom-file-upload">
+                中央アイコンをアップロード
+            </label>
+            <input type="file" id="iconUpload" accept="image/*">
+        </div>
 
         <div class="controls">
             <div class="control-group">
@@ -153,6 +196,11 @@
         const pitchSlider = document.getElementById('pitch');
         const volumeSlider = document.getElementById('volume');
         const playbackRateSlider = document.getElementById('playbackRate');
+        const colorPicker = document.getElementById('colorPicker');
+        const rainbowModeButton = document.getElementById('rainbowMode');
+        const iconUpload = document.getElementById('iconUpload');
+        const canvas = document.getElementById('visualizer');
+        const ctx = canvas.getContext('2d');
 
         const bassValueSpan = document.getElementById('bassValue');
         const pitchValueSpan = document.getElementById('pitchValue');
@@ -163,6 +211,14 @@
         let source;
         let gainNode;
         let bassFilter;
+        let analyser;
+        let rainbowMode = false;
+        let centralIcon = null;
+
+        // ビジュアライザーの設定
+        const barCount = 64; // 周波数ビンの数
+        const radius = 100; // 円の半径
+        const maxBarHeight = 100; // バーの最大高さ
 
         // オーディオファイルを読み込む
         audioFile.addEventListener('change', (event) => {
@@ -179,22 +235,23 @@
 
                 // 新しいオーディオコンテキストを作成
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
-
-                // オーディオ要素をオーディオソースとして使用
                 source = audioContext.createMediaElementSource(audioPlayer);
-
-                // ゲインノード（音量調整用）
                 gainNode = audioContext.createGain();
-
-                // 低音ブースト用のバイコーダルフィルター（ローシェルフフィルター）
                 bassFilter = audioContext.createBiquadFilter();
-                bassFilter.type = 'lowshelf'; // ローシェルフフィルターで低音を増幅
-                bassFilter.frequency.value = 250; // 低音域のカットオフ周波数 (Hz)
+                bassFilter.type = 'lowshelf';
+                bassFilter.frequency.value = 250;
+
+                // AnalyserNodeを作成
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 256;
+                const bufferLength = analyser.frequencyBinCount;
+                const dataArray = new Uint8Array(bufferLength);
 
                 // ノードを接続
                 source.connect(bassFilter);
                 bassFilter.connect(gainNode);
-                gainNode.connect(audioContext.destination);
+                gainNode.connect(analyser);
+                analyser.connect(audioContext.destination);
 
                 // 初期値をスライダーに反映
                 bassGainSlider.value = 0;
@@ -205,6 +262,9 @@
                 volumeValueSpan.textContent = 100;
                 playbackRateSlider.value = 1;
                 playbackRateValueSpan.textContent = 1;
+
+                // ビジュアライザーのアニメーション開始
+                drawVisualizer(dataArray, bufferLength);
             } else {
                 currentFileName.textContent = 'ファイルが選択されていません';
                 audioPlayer.src = '';
@@ -212,6 +272,8 @@
                     audioContext.close();
                     audioContext = null;
                 }
+                // ビジュアライザーをクリア
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
             }
         });
 
@@ -219,24 +281,19 @@
         bassGainSlider.addEventListener('input', () => {
             if (bassFilter) {
                 const gainValue = parseFloat(bassGainSlider.value);
-                bassFilter.gain.value = gainValue; // dB単位
+                bassFilter.gain.value = gainValue;
                 bassValueSpan.textContent = gainValue;
             }
         });
 
         // ピッチの調整（再生速度で擬似的に実現）
-        // Web Audio APIでピッチだけを変えるのは複雑な処理が必要なため、
-        // 今回は再生速度で代替します。
-        // 本当のピッチ調整にはHTML Audio ElementのplaybackRateは使いません。
-        // Web Audio APIのScriptProcessorNodeなどでFFT/iFFTやP-VOC等のアルゴリズムが必要です。
         pitchSlider.addEventListener('input', () => {
             const rate = parseFloat(pitchSlider.value);
             audioPlayer.playbackRate = rate;
             pitchValueSpan.textContent = rate;
-            playbackRateSlider.value = rate; // ピッチと再生速度を同期
+            playbackRateSlider.value = rate;
             playbackRateValueSpan.textContent = rate;
         });
-
 
         // 音量（Volume）の調整
         volumeSlider.addEventListener('input', () => {
@@ -252,19 +309,85 @@
             const rate = parseFloat(playbackRateSlider.value);
             audioPlayer.playbackRate = rate;
             playbackRateValueSpan.textContent = rate;
-            // ピッチと再生速度を同期（もしピッチスライダーが再生速度を兼ねている場合）
             pitchSlider.value = rate;
             pitchValueSpan.textContent = rate;
         });
 
+        // 中央アイコンのアップロード
+        iconUpload.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                const img = new Image();
+                img.onload = () => {
+                    centralIcon = img;
+                };
+                img.src = URL.createObjectURL(file);
+            } else {
+                centralIcon = null;
+            }
+        });
+
+        // レインボーモードのトグル
+        rainbowModeButton.addEventListener('click', () => {
+            rainbowMode = !rainbowMode;
+            rainbowModeButton.textContent = rainbowMode ? 'レインボーモード: ON' : 'レインボーモード: OFF';
+        });
+
+        // ビジュアライザーの描画
+        function drawVisualizer(dataArray, bufferLength) {
+            function draw() {
+                if (!analyser) return;
+                requestAnimationFrame(draw);
+
+                analyser.getByteFrequencyData(dataArray);
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                const centerX = canvas.width / 2;
+                const centerY = canvas.height / 2;
+                const angleStep = (2 * Math.PI) / barCount;
+
+                // レインボーモードの色生成
+                let hue = (Date.now() % 3600) / 10; // 色相を時間で変化
+
+                for (let i = 0; i < barCount; i++) {
+                    const barHeight = (dataArray[i] / 255) * maxBarHeight;
+                    const angle = i * angleStep;
+                    const x1 = centerX + radius * Math.cos(angle);
+                    const y1 = centerY + radius * Math.sin(angle);
+                    const x2 = centerX + (radius + barHeight) * Math.cos(angle);
+                    const y2 = centerY + (radius + barHeight) * Math.sin(angle);
+
+                    ctx.beginPath();
+                    ctx.moveTo(x1, y1);
+                    ctx.lineTo(x2, y2);
+                    ctx.lineWidth = 4;
+                    ctx.strokeStyle = rainbowMode
+                        ? `hsl(${(hue + i * 5) % 360}, 100%, 50%)`
+                        : colorPicker.value;
+                    ctx.stroke();
+                }
+
+                // 中央アイコンの描画
+                if (centralIcon) {
+                    const iconSize = 80;
+                    ctx.drawImage(
+                        centralIcon,
+                        centerX - iconSize / 2,
+                        centerY - iconSize / 2,
+                        iconSize,
+                        iconSize
+                    );
+                }
+            }
+            draw();
+        }
+
         // ページロード時にWeb Audio APIのコンテキストをアクティブにする
-        // ユーザーインタラクションがないと一部ブラウザでAudioContextが動作しないため
         document.addEventListener('click', () => {
             if (!audioContext && audioPlayer.src) {
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                // ソースとノードを再接続（ファイル選択時に初期化されるため、ここでは不要だが念のため）
             }
-        }, { once: true }); // 初回クリックのみ
+        }, { once: true });
     </script>
 </body>
 </html>
