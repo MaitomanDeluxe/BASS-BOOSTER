@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bass Booster</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background-color: #222;
+            color: #eee;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .container {
+            background-color: #333;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+            width: 100%;
+            max-width: 500px;
+            text-align: center;
+        }
+
+        h1 {
+            color: #4CAF50;
+            margin-bottom: 30px;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .custom-file-upload {
+            background-color: #4CAF50;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-bottom: 20px;
+            display: inline-block;
+        }
+
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            width: 100%;
+        }
+
+        label {
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            -webkit-appearance: none;
+            height: 8px;
+            background: #555;
+            border-radius: 5px;
+            outline: none;
+            opacity: 0.7;
+            transition: opacity .2s;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #4CAF50;
+            cursor: pointer;
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #4CAF50;
+            cursor: pointer;
+        }
+
+        audio {
+            width: 100%;
+            margin-top: 30px;
+            border-radius: 5px;
+            background-color: #444;
+        }
+
+        #currentFileName {
+            margin-top: 10px;
+            font-style: italic;
+            color: #bbb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Bass Booster</h1>
+
+        <label for="audioFile" class="custom-file-upload">
+            MP3ファイルをアップロード
+        </label>
+        <input type="file" id="audioFile" accept="audio/mp3">
+        <div id="currentFileName">ファイルが選択されていません</div>
+
+        <audio id="audioPlayer" controls></audio>
+
+        <div class="controls">
+            <div class="control-group">
+                <label for="bassGain">重低音 (Bass Boost): <span id="bassValue">0</span> dB</label>
+                <input type="range" id="bassGain" min="-30" max="30" value="0" step="1">
+            </div>
+
+            <div class="control-group">
+                <label for="pitch">ピッチ (Pitch): <span id="pitchValue">1</span></label>
+                <input type="range" id="pitch" min="0.5" max="2" value="1" step="0.01">
+            </div>
+
+            <div class="control-group">
+                <label for="volume">音量 (Volume): <span id="volumeValue">100</span> %</label>
+                <input type="range" id="volume" min="0" max="2" value="1" step="0.01">
+            </div>
+
+            <div class="control-group">
+                <label for="playbackRate">再生速度 (Playback Rate): <span id="playbackRateValue">1</span></label>
+                <input type="range" id="playbackRate" min="0.5" max="2" value="1" step="0.01">
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const audioFile = document.getElementById('audioFile');
+        const audioPlayer = document.getElementById('audioPlayer');
+        const currentFileName = document.getElementById('currentFileName');
+        const bassGainSlider = document.getElementById('bassGain');
+        const pitchSlider = document.getElementById('pitch');
+        const volumeSlider = document.getElementById('volume');
+        const playbackRateSlider = document.getElementById('playbackRate');
+
+        const bassValueSpan = document.getElementById('bassValue');
+        const pitchValueSpan = document.getElementById('pitchValue');
+        const volumeValueSpan = document.getElementById('volumeValue');
+        const playbackRateValueSpan = document.getElementById('playbackRateValue');
+
+        let audioContext;
+        let source;
+        let gainNode;
+        let bassFilter;
+
+        // オーディオファイルを読み込む
+        audioFile.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                currentFileName.textContent = file.name;
+                const fileURL = URL.createObjectURL(file);
+                audioPlayer.src = fileURL;
+
+                // 既存のオーディオコンテキストがあれば閉じる
+                if (audioContext) {
+                    audioContext.close();
+                }
+
+                // 新しいオーディオコンテキストを作成
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+                // オーディオ要素をオーディオソースとして使用
+                source = audioContext.createMediaElementSource(audioPlayer);
+
+                // ゲインノード（音量調整用）
+                gainNode = audioContext.createGain();
+
+                // 低音ブースト用のバイコーダルフィルター（ローシェルフフィルター）
+                bassFilter = audioContext.createBiquadFilter();
+                bassFilter.type = 'lowshelf'; // ローシェルフフィルターで低音を増幅
+                bassFilter.frequency.value = 250; // 低音域のカットオフ周波数 (Hz)
+
+                // ノードを接続
+                source.connect(bassFilter);
+                bassFilter.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+
+                // 初期値をスライダーに反映
+                bassGainSlider.value = 0;
+                bassValueSpan.textContent = 0;
+                pitchSlider.value = 1;
+                pitchValueSpan.textContent = 1;
+                volumeSlider.value = 1;
+                volumeValueSpan.textContent = 100;
+                playbackRateSlider.value = 1;
+                playbackRateValueSpan.textContent = 1;
+            } else {
+                currentFileName.textContent = 'ファイルが選択されていません';
+                audioPlayer.src = '';
+                if (audioContext) {
+                    audioContext.close();
+                    audioContext = null;
+                }
+            }
+        });
+
+        // 重低音（Bass Boost）の調整
+        bassGainSlider.addEventListener('input', () => {
+            if (bassFilter) {
+                const gainValue = parseFloat(bassGainSlider.value);
+                bassFilter.gain.value = gainValue; // dB単位
+                bassValueSpan.textContent = gainValue;
+            }
+        });
+
+        // ピッチの調整（再生速度で擬似的に実現）
+        // Web Audio APIでピッチだけを変えるのは複雑な処理が必要なため、
+        // 今回は再生速度で代替します。
+        // 本当のピッチ調整にはHTML Audio ElementのplaybackRateは使いません。
+        // Web Audio APIのScriptProcessorNodeなどでFFT/iFFTやP-VOC等のアルゴリズムが必要です。
+        pitchSlider.addEventListener('input', () => {
+            const rate = parseFloat(pitchSlider.value);
+            audioPlayer.playbackRate = rate;
+            pitchValueSpan.textContent = rate;
+            playbackRateSlider.value = rate; // ピッチと再生速度を同期
+            playbackRateValueSpan.textContent = rate;
+        });
+
+
+        // 音量（Volume）の調整
+        volumeSlider.addEventListener('input', () => {
+            if (gainNode) {
+                const volume = parseFloat(volumeSlider.value);
+                gainNode.gain.value = volume;
+                volumeValueSpan.textContent = Math.round(volume * 100);
+            }
+        });
+
+        // 再生速度（Playback Rate）の調整
+        playbackRateSlider.addEventListener('input', () => {
+            const rate = parseFloat(playbackRateSlider.value);
+            audioPlayer.playbackRate = rate;
+            playbackRateValueSpan.textContent = rate;
+            // ピッチと再生速度を同期（もしピッチスライダーが再生速度を兼ねている場合）
+            pitchSlider.value = rate;
+            pitchValueSpan.textContent = rate;
+        });
+
+        // ページロード時にWeb Audio APIのコンテキストをアクティブにする
+        // ユーザーインタラクションがないと一部ブラウザでAudioContextが動作しないため
+        document.addEventListener('click', () => {
+            if (!audioContext && audioPlayer.src) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                // ソースとノードを再接続（ファイル選択時に初期化されるため、ここでは不要だが念のため）
+            }
+        }, { once: true }); // 初回クリックのみ
+    </script>
+</body>
+</html>
