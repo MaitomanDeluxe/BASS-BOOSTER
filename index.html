@@ -72,7 +72,7 @@
     input[type="range"] {
       width: 100%;
     }
-    #fullScreenBtn {
+    #fullScreenBtn, #rainbowToggle {
       margin-top: 20px;
       background-color: #4CAF50;
       color: white;
@@ -84,6 +84,12 @@
     #currentFileName {
       font-style: italic;
       color: #ccc;
+    }
+    #colorPicker {
+      margin-top: 10px;
+    }
+    #visualizerTypeSelector {
+      margin-top: 10px;
     }
   </style>
 </head>
@@ -99,9 +105,16 @@
 
     <audio id="audioPlayer" controls></audio>
 
-    <canvas id="visualizer" width="400" height="300"></canvas>
+    <canvas id="visualizer" width="800" height="400"></canvas>
 
     <button id="fullScreenBtn">フルスクリーン表示</button>
+    <button id="rainbowToggle">レインボーモード: OFF</button>
+    <input type="color" id="colorPicker" value="#ffffff">
+    <select id="visualizerTypeSelector">
+      <option value="bars">棒グラフ</option>
+      <option value="double">二重リング</option>
+      <option value="wave">波形</option>
+    </select>
 
     <div class="controls">
       <div class="control-group">
@@ -139,52 +152,65 @@
     const volumeValue = document.getElementById("volumeValue");
     const playbackRateValue = document.getElementById("playbackRateValue");
     const fullScreenBtn = document.getElementById("fullScreenBtn");
+    const rainbowToggle = document.getElementById("rainbowToggle");
+    const colorPicker = document.getElementById("colorPicker");
+    const visualizerTypeSelector = document.getElementById("visualizerTypeSelector");
     const canvas = document.getElementById("visualizer");
     const ctx = canvas.getContext("2d");
 
     let audioContext, source, gainNode, bassFilter, analyser, dataArray;
+    let rainbow = false;
+    let color = '#ffffff';
+    let type = 'bars';
+
+    colorPicker.addEventListener('input', () => {
+      color = colorPicker.value;
+    });
+
+    rainbowToggle.addEventListener('click', () => {
+      rainbow = !rainbow;
+      rainbowToggle.textContent = rainbow ? 'レインボーモード: ON' : 'レインボーモード: OFF';
+    });
+
+    visualizerTypeSelector.addEventListener('change', () => {
+      type = visualizerTypeSelector.value;
+    });
+
+    fullScreenBtn.addEventListener("click", () => {
+      if (canvas.requestFullscreen) canvas.requestFullscreen();
+      else if (canvas.webkitRequestFullscreen) canvas.webkitRequestFullscreen();
+      else if (canvas.msRequestFullscreen) canvas.msRequestFullscreen();
+    });
 
     audioFile.addEventListener("change", async (event) => {
       const file = event.target.files[0];
-      if (file) {
-        currentFileName.textContent = file.name;
-        const fileURL = URL.createObjectURL(file);
-        audioPlayer.src = fileURL;
-        audioPlayer.load();
-        await audioPlayer.play();
+      if (!file) return;
+      currentFileName.textContent = file.name;
+      audioPlayer.src = URL.createObjectURL(file);
+      audioPlayer.load();
+      await audioPlayer.play();
 
-        if (!audioContext) {
-          audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        } else {
-          audioContext.close();
-          audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        }
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      source = audioContext.createMediaElementSource(audioPlayer);
+      gainNode = audioContext.createGain();
+      bassFilter = audioContext.createBiquadFilter();
+      bassFilter.type = 'lowshelf';
+      bassFilter.frequency.value = 250;
+      analyser = audioContext.createAnalyser();
+      analyser.fftSize = 256;
+      dataArray = new Uint8Array(analyser.frequencyBinCount);
 
-        source = audioContext.createMediaElementSource(audioPlayer);
-        gainNode = audioContext.createGain();
-        bassFilter = audioContext.createBiquadFilter();
-        bassFilter.type = 'lowshelf';
-        bassFilter.frequency.value = 250;
-        bassFilter.gain.value = parseFloat(bassGain.value);
+      source.connect(bassFilter);
+      bassFilter.connect(gainNode);
+      gainNode.connect(analyser);
+      analyser.connect(audioContext.destination);
 
-        analyser = audioContext.createAnalyser();
-        analyser.fftSize = 256;
-        dataArray = new Uint8Array(analyser.frequencyBinCount);
-
-        source.connect(bassFilter);
-        bassFilter.connect(gainNode);
-        gainNode.connect(analyser);
-        analyser.connect(audioContext.destination);
-
-        draw();
-      }
+      draw();
     });
 
     bassGain.addEventListener("input", () => {
-      if (bassFilter) {
-        bassFilter.gain.value = parseFloat(bassGain.value);
-        bassValue.textContent = bassGain.value;
-      }
+      bassFilter.gain.value = parseFloat(bassGain.value);
+      bassValue.textContent = bassGain.value;
     });
 
     pitch.addEventListener("input", () => {
@@ -195,10 +221,8 @@
     });
 
     volume.addEventListener("input", () => {
-      if (gainNode) {
-        gainNode.gain.value = parseFloat(volume.value);
-        volumeValue.textContent = Math.round(volume.value * 100);
-      }
+      gainNode.gain.value = parseFloat(volume.value);
+      volumeValue.textContent = Math.round(volume.value * 100);
     });
 
     playbackRate.addEventListener("input", () => {
@@ -208,17 +232,6 @@
       pitchValue.textContent = playbackRate.value;
     });
 
-    fullScreenBtn.addEventListener("click", () => {
-      const container = document.querySelector(".container");
-      if (container.requestFullscreen) {
-        container.requestFullscreen();
-      } else if (container.webkitRequestFullscreen) {
-        container.webkitRequestFullscreen();
-      } else if (container.msRequestFullscreen) {
-        container.msRequestFullscreen();
-      }
-    });
-
     function draw() {
       requestAnimationFrame(draw);
       if (!analyser) return;
@@ -226,11 +239,42 @@
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      const barWidth = canvas.width / dataArray.length;
-      for (let i = 0; i < dataArray.length; i++) {
-        const barHeight = dataArray[i];
-        ctx.fillStyle = `hsl(${i * 3}, 100%, 50%)`;
-        ctx.fillRect(i * barWidth, canvas.height - barHeight, barWidth, barHeight);
+      const width = canvas.width;
+      const height = canvas.height;
+      const len = dataArray.length;
+
+      for (let i = 0; i < len; i++) {
+        const val = dataArray[i];
+        const hue = (Date.now() / 20 + i * 4) % 360;
+        const fillStyle = rainbow ? `hsl(${hue},100%,50%)` : color;
+
+        if (type === 'bars') {
+          const barWidth = width / len;
+          ctx.fillStyle = fillStyle;
+          ctx.fillRect(i * barWidth, height - val, barWidth - 2, val);
+        } else if (type === 'double') {
+          const angle = (Math.PI * 2 * i) / len;
+          const radius = 100 + val / 2;
+          const cx = width / 2;
+          const cy = height / 2;
+          const x = cx + radius * Math.cos(angle);
+          const y = cy + radius * Math.sin(angle);
+          ctx.beginPath();
+          ctx.strokeStyle = fillStyle;
+          ctx.moveTo(cx, cy);
+          ctx.lineTo(x, y);
+          ctx.stroke();
+        } else if (type === 'wave') {
+          const sliceWidth = width / len;
+          ctx.beginPath();
+          ctx.strokeStyle = fillStyle;
+          for (let j = 0; j < len; j++) {
+            const y = (dataArray[j] / 255) * height;
+            if (j === 0) ctx.moveTo(j * sliceWidth, y);
+            else ctx.lineTo(j * sliceWidth, y);
+          }
+          ctx.stroke();
+        }
       }
     }
   </script>
