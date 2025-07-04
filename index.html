@@ -1,558 +1,224 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bass Booster with Visualizer</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            background-color: #222;
-            color: #eee;
-            margin: 0;
-            padding: 20px;
-            box-sizing: border-box;
-        }
-
-        .container {
-            background-color: #333;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
-            width: 100%;
-            max-width: 500px;
-            text-align: center;
-        }
-
-        h1 {
-            color: #4CAF50;
-            margin-bottom: 30px;
-        }
-
-        input[type="file"] {
-            display: none;
-        }
-
-        .custom-file-upload {
-            background-color: #4CAF50;
-            color: white;
-            padding: 12px 20px;
-            border-radius: 5px;
-            cursor: pointer;
-            margin-bottom: 20px;
-            display: inline-block;
-        }
-
-        .controls {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-            margin-top: 20px;
-        }
-
-        .control-group {
-            display: flex;
-            flex-direction: column;
-            align-items: flex-start;
-            width: 100%;
-        }
-
-        label {
-            margin-bottom: 5px;
-            font-weight: bold;
-        }
-
-        input[type="range"] {
-            width: 100%;
-            -webkit-appearance: none;
-            height: 8px;
-            background: #555;
-            border-radius: 5px;
-            outline: none;
-            opacity: 0.7;
-            transition: opacity .2s;
-        }
-
-        input[type="range"]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            background: #4CAF50;
-            cursor: pointer;
-        }
-
-        input[type="range"]::-moz-range-thumb {
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            background: #4CAF50;
-            cursor: pointer;
-        }
-
-        audio {
-            width: 100%;
-            margin-top: 30px;
-            border-radius: 5px;
-            background-color: #444;
-        }
-
-        #currentFileName {
-            margin-top: 10px;
-            font-style: italic;
-            color: #bbb;
-        }
-
-        #visualizer {
-            margin-top: 20px;
-            border-radius: 10px;
-            background-color: #222;
-            position: relative;
-        }
-
-        .visualizer-controls {
-            margin-top: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            align-items: center;
-        }
-
-        #colorPicker {
-            width: 50px;
-            height: 30px;
-            border: none;
-            cursor: pointer;
-            background-color: transparent;
-        }
-
-        #rainbowMode {
-            background-color: #4CAF50;
-            color: white;
-            padding: 10px 15px;
-            border-radius: 5px;
-            cursor: pointer;
-            border: none;
-        }
-
-        #cropModal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.8);
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-        }
-
-        #cropContainer {
-            background-color: #333;
-            padding: 20px;
-            border-radius: 10px;
-            text-align: center;
-        }
-
-        #cropCanvas {
-            max-width: 400px;
-            max-height: 400px;
-            border: 2px solid #4CAF50;
-        }
-
-        #cropButton, #cancelCropButton {
-            background-color: #4CAF50;
-            color: white;
-            padding: 10px 15px;
-            border-radius: 5px;
-            cursor: pointer;
-            border: none;
-            margin: 10px;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Visualizer Fullscreen</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#000000">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Visualizer">
+  <link rel="apple-touch-icon" href="icon.png">
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background-color: black;
+      font-family: sans-serif;
+    }
+    #visualizer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background-color: black;
+    }
+    #songTitle {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      color: white;
+      font-size: 1.5em;
+      background: rgba(0, 0, 0, 0.5);
+      padding: 5px 10px;
+      border-radius: 5px;
+    }
+    input[type="file"] {
+      display: none;
+    }
+    #fileLabel {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      background-color: #4CAF50;
+      color: white;
+      padding: 10px 15px;
+      border-radius: 5px;
+      cursor: pointer;
+      z-index: 10;
+    }
+    #modeToggle {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      z-index: 10;
+      display: flex;
+      gap: 10px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 20px;
+      padding: 5px 10px;
+    }
+    .toggle-option {
+      appearance: none;
+      width: 40px;
+      height: 20px;
+      background: #ccc;
+      border-radius: 10px;
+      position: relative;
+      outline: none;
+      cursor: pointer;
+    }
+    .toggle-option:checked {
+      background: #4CAF50;
+    }
+    .toggle-option::before {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 16px;
+      height: 16px;
+      background: white;
+      border-radius: 50%;
+      transition: 0.2s;
+    }
+    .toggle-option:checked::before {
+      transform: translateX(20px);
+    }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Bass Booster with Visualizer</h1>
+  <label id="fileLabel" for="audioFile">音楽を選択</label>
+  <input type="file" id="audioFile" accept="audio/*">
+  <canvas id="visualizer"></canvas>
+  <div id="songTitle">曲名がここに表示されます</div>
+  <div id="modeToggle">
+    <label title="Bars"><input type="radio" name="mode" class="toggle-option" checked value="bars"></label>
+    <label title="Smooth"><input type="radio" name="mode" class="toggle-option" value="smooth"></label>
+    <label title="Circle"><input type="radio" name="mode" class="toggle-option" value="circle"></label>
+  </div>
 
-        <label for="audioFile" class="custom-file-upload">
-            MP3ファイルをアップロード
-        </label>
-        <input type="file" id="audioFile" accept="audio/mp3">
-        <div id="currentFileName">ファイルが選択されていません</div>
+  <script>
+    const audioFile = document.getElementById('audioFile');
+    const canvas = document.getElementById('visualizer');
+    const ctx = canvas.getContext('2d');
+    const songTitle = document.getElementById('songTitle');
+    const modeRadios = document.querySelectorAll('input[name="mode"]');
 
-        <audio id="audioPlayer" controls></audio>
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
 
-        <canvas id="visualizer" width="400" height="400"></canvas>
+    window.addEventListener('resize', () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    });
 
-        <div class="visualizer-controls">
-            <label for="colorPicker">ビジュアライザーの色:</label>
-            <input type="color" id="colorPicker" value="#4CAF50">
-            <button id="rainbowMode">レインボーモード</button>
-            <label for="iconUpload" class="custom-file-upload">
-                中央アイコンをアップロード
-            </label>
-            <input type="file" id="iconUpload" accept="image/*">
-        </div>
+    let audioContext, analyser, source, dataArray, bufferLength;
+    let audio = new Audio();
+    let drawFunction = null;
 
-        <div class="controls">
-            <div class="control-group">
-                <label for="bassGain">重低音 (Bass Boost): <span id="bassValue">0</span> dB</label>
-                <input type="range" id="bassGain" min="-30" max="30" value="0" step="1">
-            </div>
+    function setupAudioContext() {
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      source = audioContext.createMediaElementSource(audio);
+      analyser = audioContext.createAnalyser();
+      analyser.fftSize = 2048;
+      bufferLength = analyser.frequencyBinCount;
+      dataArray = new Uint8Array(bufferLength);
+      source.connect(analyser);
+      analyser.connect(audioContext.destination);
+    }
 
-            <div class="control-group">
-                <label for="pitch">ピッチ (Pitch): <span id="pitchValue">1</span></label>
-                <input type="range" id="pitch" min="0.5" max="2" value="1" step="0.01">
-            </div>
-
-            <div class="control-group">
-                <label for="volume">音量 (Volume): <span id="volumeValue">100</span> %</label>
-                <input type="range" id="volume" min="0" max="2" value="1" step="0.01">
-            </div>
-
-            <div class="control-group">
-                <label for="playbackRate">再生速度 (Playback Rate): <span id="playbackRateValue">1</span></label>
-                <input type="range" id="playbackRate" min="0.5" max="2" value="1" step="0.01">
-            </div>
-        </div>
-    </div>
-
-    <div id="cropModal">
-        <div id="cropContainer">
-            <canvas id="cropCanvas"></canvas>
-            <div>
-                <button id="cropButton">切り抜き</button>
-                <button id="cancelCropButton">キャンセル</button>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        const audioFile = document.getElementById('audioFile');
-        const audioPlayer = document.getElementById('audioPlayer');
-        const currentFileName = document.getElementById('currentFileName');
-        const bassGainSlider = document.getElementById('bassGain');
-        const pitchSlider = document.getElementById('pitch');
-        const volumeSlider = document.getElementById('volume');
-        const playbackRateSlider = document.getElementById('playbackRate');
-        const colorPicker = document.getElementById('colorPicker');
-        const rainbowModeButton = document.getElementById('rainbowMode');
-        const iconUpload = document.getElementById('iconUpload');
-        const visualizerCanvas = document.getElementById('visualizer');
-        const visualizerCtx = visualizerCanvas.getContext('2d');
-        const cropModal = document.getElementById('cropModal');
-        const cropCanvas = document.getElementById('cropCanvas');
-        const cropCtx = cropCanvas.getContext('2d');
-        const cropButton = document.getElementById('cropButton');
-        const cancelCropButton = document.getElementById('cancelCropButton');
-
-        const bassValueSpan = document.getElementById('bassValue');
-        const pitchValueSpan = document.getElementById('pitchValue');
-        const volumeValueSpan = document.getElementById('volumeValue');
-        const playbackRateValueSpan = document.getElementById('playbackRateValue');
-
-        let audioContext;
-        let source;
-        let gainNode;
-        let bassFilter;
-        let analyser;
-        let rainbowMode = false;
-        let centralIcon = null;
-        let originalImage = null;
-        let cropStartX = 0;
-        let cropStartY = 0;
-        let cropSize = 200;
-
-        // ビジュアライザーの設定
-        const barCount = 64;
-        const radius = 100;
-        const maxBarHeight = 100;
-        const iconSize = 80;
-
-        // 背景アニメーションのためのパーティクル
-        const particles = [];
-        const particleCount = 50;
-
-        function createParticles() {
-            for (let i = 0; i < particleCount; i++) {
-                particles.push({
-                    x: Math.random() * visualizerCanvas.width,
-                    y: Math.random() * visualizerCanvas.height,
-                    radius: Math.random() * 2 + 1,
-                    speedX: (Math.random() - 0.5) * 0.5,
-                    speedY: (Math.random() - 0.5) * 0.5
-                });
-            }
+    function drawBars() {
+      drawFunction = function draw() {
+        requestAnimationFrame(drawFunction);
+        analyser.getByteFrequencyData(dataArray);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        const barWidth = (canvas.width / bufferLength) * 2.5;
+        let x = 0;
+        for (let i = 0; i < bufferLength; i++) {
+          const barHeight = dataArray[i];
+          ctx.fillStyle = `rgb(${barHeight+100},${i*3},100)`;
+          ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
+          x += barWidth + 1;
         }
+      };
+      drawFunction();
+    }
 
-        function drawBackground() {
-            visualizerCtx.fillStyle = 'rgba(34, 34, 34, 0.8)';
-            visualizerCtx.fillRect(0, 0, visualizerCanvas.width, visualizerCanvas.height);
-
-            particles.forEach(particle => {
-                particle.x += particle.speedX;
-                particle.y += particle.speedY;
-
-                if (particle.x < 0 || particle.x > visualizerCanvas.width) particle.speedX *= -1;
-                if (particle.y < 0 || particle.y > visualizerCanvas.height) particle.speedY *= -1;
-
-                visualizerCtx.beginPath();
-                visualizerCtx.arc(particle.x, particle.y, particle.radius, 0, 2 * Math.PI);
-                visualizerCtx.fillStyle = 'rgba(255, 255, 255, 0.1)';
-                visualizerCtx.fill();
-            });
+    function drawSmoothDual() {
+      drawFunction = function draw() {
+        requestAnimationFrame(drawFunction);
+        analyser.getByteFrequencyData(dataArray);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        const centerY = canvas.height / 2;
+        const barWidth = canvas.width / bufferLength;
+        for (let i = 0; i < bufferLength; i++) {
+          const value = dataArray[i];
+          const height = value / 255 * canvas.height / 2;
+          ctx.fillStyle = `hsl(${i * 360 / bufferLength}, 100%, 50%)`;
+          ctx.fillRect(i * barWidth, centerY - height, barWidth, height * 2);
         }
+      };
+      drawFunction();
+    }
 
-        // オーディオファイルを読み込む
-        audioFile.addEventListener('change', (event) => {
-            const file = event.target.files[0];
-            if (file) {
-                currentFileName.textContent = file.name;
-                const fileURL = URL.createObjectURL(file);
-                audioPlayer.src = fileURL;
-
-                if (audioContext) {
-                    audioContext.close();
-                }
-
-                audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                source = audioContext.createMediaElementSource(audioPlayer);
-                gainNode = audioContext.createGain();
-                bassFilter = audioContext.createBiquadFilter();
-                bassFilter.type = 'lowshelf';
-                bassFilter.frequency.value = 250;
-
-                analyser = audioContext.createAnalyser();
-                analyser.fftSize = 256;
-                const bufferLength = analyser.frequencyBinCount;
-                const dataArray = new Uint8Array(bufferLength);
-
-                source.connect(bassFilter);
-                bassFilter.connect(gainNode);
-                gainNode.connect(analyser);
-                analyser.connect(audioContext.destination);
-
-                bassGainSlider.value = 0;
-                bassValueSpan.textContent = 0;
-                pitchSlider.value = 1;
-                pitchValueSpan.textContent = 1;
-                volumeSlider.value = 1;
-                volumeValueSpan.textContent = 100;
-                playbackRateSlider.value = 1;
-                playbackRateValueSpan.textContent = 1;
-
-                createParticles();
-                drawVisualizer(dataArray, bufferLength);
-            } else {
-                currentFileName.textContent = 'ファイルが選択されていません';
-                audioPlayer.src = '';
-                if (audioContext) {
-                    audioContext.close();
-                    audioContext = null;
-                }
-                visualizerCtx.clearRect(0, 0, visualizerCanvas.width, visualizerCanvas.height);
-            }
-        });
-
-        // 重低音（Bass Boost）の調整
-        bassGainSlider.addEventListener('input', () => {
-            if (bassFilter) {
-                const gainValue = parseFloat(bassGainSlider.value);
-                bassFilter.gain.value = gainValue;
-                bassValueSpan.textContent = gainValue;
-            }
-        });
-
-        // ピッチの調整
-        pitchSlider.addEventListener('input', () => {
-            const rate = parseFloat(pitchSlider.value);
-            audioPlayer.playbackRate = rate;
-            pitchValueSpan.textContent = rate;
-            playbackRateSlider.value = rate;
-            playbackRateValueSpan.textContent = rate;
-        });
-
-        // 音量（Volume）の調整
-        volumeSlider.addEventListener('input', () => {
-            if (gainNode) {
-                const volume = parseFloat(volumeSlider.value);
-                gainNode.gain.value = volume;
-                volumeValueSpan.textContent = Math.round(volume * 100);
-            }
-        });
-
-        // 再生速度（Playback Rate）の調整
-        playbackRateSlider.addEventListener('input', () => {
-            const rate = parseFloat(playbackRateSlider.value);
-            audioPlayer.playbackRate = rate;
-            playbackRateValueSpan.textContent = rate;
-            pitchSlider.value = rate;
-            pitchValueSpan.textContent = rate;
-        });
-
-        // 中央アイコンのアップロードとクロッピング
-        iconUpload.addEventListener('change', (event) => {
-            const file = event.target.files[0];
-            if (file) {
-                originalImage = new Image();
-                originalImage.onload = () => {
-                    cropModal.style.display = 'flex';
-                    setupCropCanvas();
-                };
-                originalImage.src = URL.createObjectURL(file);
-            }
-        });
-
-        function setupCropCanvas() {
-            cropCanvas.width = 400;
-            cropCanvas.height = 400;
-            const imgAspect = originalImage.width / originalImage.height;
-            const canvasAspect = cropCanvas.width / cropCanvas.height;
-            let drawWidth, drawHeight;
-
-            if (imgAspect > canvasAspect) {
-                drawWidth = cropCanvas.height * imgAspect;
-                drawHeight = cropCanvas.height;
-            } else {
-                drawWidth = cropCanvas.width;
-                drawHeight = cropCanvas.width / imgAspect;
-            }
-
-            cropStartX = (cropCanvas.width - drawWidth) / 2;
-            cropStartY = (cropCanvas.height - drawHeight) / 2;
-
-            function drawCropPreview() {
-                cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
-                cropCtx.drawImage(originalImage, cropStartX, cropStartY, drawWidth, drawHeight);
-
-                // 円形マスク
-                cropCtx.beginPath();
-                cropCtx.arc(cropCanvas.width / 2, cropCanvas.height / 2, cropSize / 2, 0, 2 * Math.PI);
-                cropCtx.strokeStyle = '#4CAF50';
-                cropCtx.lineWidth = 2;
-                cropCtx.stroke();
-                cropCtx.globalCompositeOperation = 'destination-in';
-                cropCtx.beginPath();
-                cropCtx.arc(cropCanvas.width / 2, cropCanvas.height / 2, cropSize / 2, 0, 2 * Math.PI);
-                cropCtx.fill();
-                cropCtx.globalCompositeOperation = 'source-over';
-            }
-
-            drawCropPreview();
-
-            // マウスドラッグで画像移動
-            let isDragging = false;
-            let startX, startY;
-
-            cropCanvas.addEventListener('mousedown', (e) => {
-                isDragging = true;
-                startX = e.offsetX - cropStartX;
-                startY = e.offsetY - cropStartY;
-            });
-
-            cropCanvas.addEventListener('mousemove', (e) => {
-                if (isDragging) {
-                    cropStartX = e.offsetX - startX;
-                    cropStartY = e.offsetY - startY;
-                    drawCropPreview();
-                }
-            });
-
-            cropCanvas.addEventListener('mouseup', () => {
-                isDragging = false;
-            });
+    function drawCircles() {
+      drawFunction = function draw() {
+        requestAnimationFrame(drawFunction);
+        analyser.getByteFrequencyData(dataArray);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+        for (let i = 0; i < bufferLength; i++) {
+          const value = dataArray[i];
+          const radius = value / 2;
+          const angle = i * (2 * Math.PI / bufferLength);
+          const x = centerX + Math.cos(angle) * radius;
+          const y = centerY + Math.sin(angle) * radius;
+          ctx.beginPath();
+          ctx.arc(x, y, 2, 0, Math.PI * 2);
+          ctx.fillStyle = `hsl(${i * 360 / bufferLength}, 100%, 50%)`;
+          ctx.fill();
         }
+      };
+      drawFunction();
+    }
 
-        cropButton.addEventListener('click', () => {
-            const tempCanvas = document.createElement('canvas');
-            tempCanvas.width = iconSize;
-            tempCanvas.height = iconSize;
-            const tempCtx = tempCanvas.getContext('2d');
+    audioFile.addEventListener('change', (event) => {
+      const file = event.target.files[0];
+      if (file) {
+        const url = URL.createObjectURL(file);
+        audio.src = url;
+        audio.play();
+        songTitle.textContent = file.name;
+        if (!audioContext) setupAudioContext();
+        switchVisualizer(getCurrentMode());
+      }
+    });
 
-            tempCtx.beginPath();
-            tempCtx.arc(iconSize / 2, iconSize / 2, iconSize / 2, 0, 2 * Math.PI);
-            tempCtx.clip();
+    function getCurrentMode() {
+      const checked = document.querySelector('input[name="mode"]:checked');
+      return checked ? checked.value : 'bars';
+    }
 
-            const scale = Math.min(originalImage.width / cropSize, originalImage.height / cropSize);
-            const sx = (cropStartX - (cropCanvas.width - cropSize) / 2) * scale;
-            const sy = (cropStartY - (cropCanvas.height - cropSize) / 2) * scale;
-            tempCtx.drawImage(originalImage, sx, sy, cropSize * scale, cropSize * scale, 0, 0, iconSize, iconSize);
+    function switchVisualizer(mode) {
+      if (drawFunction) drawFunction = null; // reset
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      if (mode === 'bars') drawBars();
+      if (mode === 'smooth') drawSmoothDual();
+      if (mode === 'circle') drawCircles();
+    }
 
-            centralIcon = new Image();
-            centralIcon.src = tempCanvas.toDataURL();
-            cropModal.style.display = 'none';
-        });
-
-        cancelCropButton.addEventListener('click', () => {
-            cropModal.style.display = 'none';
-            centralIcon = null;
-        });
-
-        // レインボーモードのトグル
-        rainbowModeButton.addEventListener('click', () => {
-            rainbowMode = !rainbowMode;
-            rainbowModeButton.textContent = rainbowMode ? 'レインボーモード: ON' : 'レインボーモード: OFF';
-        });
-
-        // ビジュアライザーの描画
-        function drawVisualizer(dataArray, bufferLength) {
-            function draw() {
-                if (!analyser) return;
-                requestAnimationFrame(draw);
-
-                drawBackground();
-
-                analyser.getByteFrequencyData(dataArray);
-                const centerX = visualizerCanvas.width / 2;
-                const centerY = visualizerCanvas.height / 2;
-                const angleStep = (2 * Math.PI) / barCount;
-                let hue = (Date.now() % 3600) / 10;
-
-                for (let i = 0; i < barCount; i++) {
-                    const barHeight = (dataArray[i] / 255) * maxBarHeight;
-                    const angle = i * angleStep;
-                    const x1 = centerX + radius * Math.cos(angle);
-                    const y1 = centerY + radius * Math.sin(angle);
-                    const x2 = centerX + (radius + barHeight) * Math.cos(angle);
-                    const y2 = centerY + (radius + barHeight) * Math.sin(angle);
-
-                    visualizerCtx.beginPath();
-                    visualizerCtx.moveTo(x1, y1);
-                    visualizerCtx.lineTo(x2, y2);
-                    visualizerCtx.lineWidth = 4;
-                    visualizerCtx.strokeStyle = rainbowMode
-                        ? `hsl(${(hue + i * 5) % 360}, 100%, 50%)`
-                        : colorPicker.value;
-                    visualizerCtx.stroke();
-                }
-
-                if (centralIcon) {
-                    visualizerCtx.drawImage(
-                        centralIcon,
-                        centerX - iconSize / 2,
-                        centerY - iconSize / 2,
-                        iconSize,
-                        iconSize
-                    );
-                }
-            }
-            draw();
-        }
-
-        // ページロード時にWeb Audio APIのコンテキストをアクティブにする
-        document.addEventListener('click', () => {
-            if (!audioContext && audioPlayer.src) {
-                audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            }
-        }, { once: true });
-    </script>
+    modeRadios.forEach(r => {
+      r.addEventListener('change', () => {
+        switchVisualizer(r.value);
+      });
+    });
+  </script>
 </body>
 </html>
