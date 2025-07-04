@@ -113,6 +113,7 @@
             margin-top: 20px;
             border-radius: 10px;
             background-color: #222;
+            position: relative;
         }
 
         .visualizer-controls {
@@ -138,6 +139,42 @@
             border-radius: 5px;
             cursor: pointer;
             border: none;
+        }
+
+        #cropModal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        #cropContainer {
+            background-color: #333;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        #cropCanvas {
+            max-width: 400px;
+            max-height: 400px;
+            border: 2px solid #4CAF50;
+        }
+
+        #cropButton, #cancelCropButton {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            border: none;
+            margin: 10px;
         }
     </style>
 </head>
@@ -188,6 +225,16 @@
         </div>
     </div>
 
+    <div id="cropModal">
+        <div id="cropContainer">
+            <canvas id="cropCanvas"></canvas>
+            <div>
+                <button id="cropButton">切り抜き</button>
+                <button id="cancelCropButton">キャンセル</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         const audioFile = document.getElementById('audioFile');
         const audioPlayer = document.getElementById('audioPlayer');
@@ -199,8 +246,13 @@
         const colorPicker = document.getElementById('colorPicker');
         const rainbowModeButton = document.getElementById('rainbowMode');
         const iconUpload = document.getElementById('iconUpload');
-        const canvas = document.getElementById('visualizer');
-        const ctx = canvas.getContext('2d');
+        const visualizerCanvas = document.getElementById('visualizer');
+        const visualizerCtx = visualizerCanvas.getContext('2d');
+        const cropModal = document.getElementById('cropModal');
+        const cropCanvas = document.getElementById('cropCanvas');
+        const cropCtx = cropCanvas.getContext('2d');
+        const cropButton = document.getElementById('cropButton');
+        const cancelCropButton = document.getElementById('cancelCropButton');
 
         const bassValueSpan = document.getElementById('bassValue');
         const pitchValueSpan = document.getElementById('pitchValue');
@@ -214,11 +266,50 @@
         let analyser;
         let rainbowMode = false;
         let centralIcon = null;
+        let originalImage = null;
+        let cropStartX = 0;
+        let cropStartY = 0;
+        let cropSize = 200;
 
         // ビジュアライザーの設定
-        const barCount = 64; // 周波数ビンの数
-        const radius = 100; // 円の半径
-        const maxBarHeight = 100; // バーの最大高さ
+        const barCount = 64;
+        const radius = 100;
+        const maxBarHeight = 100;
+        const iconSize = 80;
+
+        // 背景アニメーションのためのパーティクル
+        const particles = [];
+        const particleCount = 50;
+
+        function createParticles() {
+            for (let i = 0; i < particleCount; i++) {
+                particles.push({
+                    x: Math.random() * visualizerCanvas.width,
+                    y: Math.random() * visualizerCanvas.height,
+                    radius: Math.random() * 2 + 1,
+                    speedX: (Math.random() - 0.5) * 0.5,
+                    speedY: (Math.random() - 0.5) * 0.5
+                });
+            }
+        }
+
+        function drawBackground() {
+            visualizerCtx.fillStyle = 'rgba(34, 34, 34, 0.8)';
+            visualizerCtx.fillRect(0, 0, visualizerCanvas.width, visualizerCanvas.height);
+
+            particles.forEach(particle => {
+                particle.x += particle.speedX;
+                particle.y += particle.speedY;
+
+                if (particle.x < 0 || particle.x > visualizerCanvas.width) particle.speedX *= -1;
+                if (particle.y < 0 || particle.y > visualizerCanvas.height) particle.speedY *= -1;
+
+                visualizerCtx.beginPath();
+                visualizerCtx.arc(particle.x, particle.y, particle.radius, 0, 2 * Math.PI);
+                visualizerCtx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+                visualizerCtx.fill();
+            });
+        }
 
         // オーディオファイルを読み込む
         audioFile.addEventListener('change', (event) => {
@@ -228,12 +319,10 @@
                 const fileURL = URL.createObjectURL(file);
                 audioPlayer.src = fileURL;
 
-                // 既存のオーディオコンテキストがあれば閉じる
                 if (audioContext) {
                     audioContext.close();
                 }
 
-                // 新しいオーディオコンテキストを作成
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 source = audioContext.createMediaElementSource(audioPlayer);
                 gainNode = audioContext.createGain();
@@ -241,19 +330,16 @@
                 bassFilter.type = 'lowshelf';
                 bassFilter.frequency.value = 250;
 
-                // AnalyserNodeを作成
                 analyser = audioContext.createAnalyser();
                 analyser.fftSize = 256;
                 const bufferLength = analyser.frequencyBinCount;
                 const dataArray = new Uint8Array(bufferLength);
 
-                // ノードを接続
                 source.connect(bassFilter);
                 bassFilter.connect(gainNode);
                 gainNode.connect(analyser);
                 analyser.connect(audioContext.destination);
 
-                // 初期値をスライダーに反映
                 bassGainSlider.value = 0;
                 bassValueSpan.textContent = 0;
                 pitchSlider.value = 1;
@@ -263,7 +349,7 @@
                 playbackRateSlider.value = 1;
                 playbackRateValueSpan.textContent = 1;
 
-                // ビジュアライザーのアニメーション開始
+                createParticles();
                 drawVisualizer(dataArray, bufferLength);
             } else {
                 currentFileName.textContent = 'ファイルが選択されていません';
@@ -272,8 +358,7 @@
                     audioContext.close();
                     audioContext = null;
                 }
-                // ビジュアライザーをクリア
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                visualizerCtx.clearRect(0, 0, visualizerCanvas.width, visualizerCanvas.height);
             }
         });
 
@@ -286,7 +371,7 @@
             }
         });
 
-        // ピッチの調整（再生速度で擬似的に実現）
+        // ピッチの調整
         pitchSlider.addEventListener('input', () => {
             const rate = parseFloat(pitchSlider.value);
             audioPlayer.playbackRate = rate;
@@ -313,18 +398,102 @@
             pitchValueSpan.textContent = rate;
         });
 
-        // 中央アイコンのアップロード
+        // 中央アイコンのアップロードとクロッピング
         iconUpload.addEventListener('change', (event) => {
             const file = event.target.files[0];
             if (file) {
-                const img = new Image();
-                img.onload = () => {
-                    centralIcon = img;
+                originalImage = new Image();
+                originalImage.onload = () => {
+                    cropModal.style.display = 'flex';
+                    setupCropCanvas();
                 };
-                img.src = URL.createObjectURL(file);
-            } else {
-                centralIcon = null;
+                originalImage.src = URL.createObjectURL(file);
             }
+        });
+
+        function setupCropCanvas() {
+            cropCanvas.width = 400;
+            cropCanvas.height = 400;
+            const imgAspect = originalImage.width / originalImage.height;
+            const canvasAspect = cropCanvas.width / cropCanvas.height;
+            let drawWidth, drawHeight;
+
+            if (imgAspect > canvasAspect) {
+                drawWidth = cropCanvas.height * imgAspect;
+                drawHeight = cropCanvas.height;
+            } else {
+                drawWidth = cropCanvas.width;
+                drawHeight = cropCanvas.width / imgAspect;
+            }
+
+            cropStartX = (cropCanvas.width - drawWidth) / 2;
+            cropStartY = (cropCanvas.height - drawHeight) / 2;
+
+            function drawCropPreview() {
+                cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
+                cropCtx.drawImage(originalImage, cropStartX, cropStartY, drawWidth, drawHeight);
+
+                // 円形マスク
+                cropCtx.beginPath();
+                cropCtx.arc(cropCanvas.width / 2, cropCanvas.height / 2, cropSize / 2, 0, 2 * Math.PI);
+                cropCtx.strokeStyle = '#4CAF50';
+                cropCtx.lineWidth = 2;
+                cropCtx.stroke();
+                cropCtx.globalCompositeOperation = 'destination-in';
+                cropCtx.beginPath();
+                cropCtx.arc(cropCanvas.width / 2, cropCanvas.height / 2, cropSize / 2, 0, 2 * Math.PI);
+                cropCtx.fill();
+                cropCtx.globalCompositeOperation = 'source-over';
+            }
+
+            drawCropPreview();
+
+            // マウスドラッグで画像移動
+            let isDragging = false;
+            let startX, startY;
+
+            cropCanvas.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                startX = e.offsetX - cropStartX;
+                startY = e.offsetY - cropStartY;
+            });
+
+            cropCanvas.addEventListener('mousemove', (e) => {
+                if (isDragging) {
+                    cropStartX = e.offsetX - startX;
+                    cropStartY = e.offsetY - startY;
+                    drawCropPreview();
+                }
+            });
+
+            cropCanvas.addEventListener('mouseup', () => {
+                isDragging = false;
+            });
+        }
+
+        cropButton.addEventListener('click', () => {
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = iconSize;
+            tempCanvas.height = iconSize;
+            const tempCtx = tempCanvas.getContext('2d');
+
+            tempCtx.beginPath();
+            tempCtx.arc(iconSize / 2, iconSize / 2, iconSize / 2, 0, 2 * Math.PI);
+            tempCtx.clip();
+
+            const scale = Math.min(originalImage.width / cropSize, originalImage.height / cropSize);
+            const sx = (cropStartX - (cropCanvas.width - cropSize) / 2) * scale;
+            const sy = (cropStartY - (cropCanvas.height - cropSize) / 2) * scale;
+            tempCtx.drawImage(originalImage, sx, sy, cropSize * scale, cropSize * scale, 0, 0, iconSize, iconSize);
+
+            centralIcon = new Image();
+            centralIcon.src = tempCanvas.toDataURL();
+            cropModal.style.display = 'none';
+        });
+
+        cancelCropButton.addEventListener('click', () => {
+            cropModal.style.display = 'none';
+            centralIcon = null;
         });
 
         // レインボーモードのトグル
@@ -339,15 +508,13 @@
                 if (!analyser) return;
                 requestAnimationFrame(draw);
 
+                drawBackground();
+
                 analyser.getByteFrequencyData(dataArray);
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-                const centerX = canvas.width / 2;
-                const centerY = canvas.height / 2;
+                const centerX = visualizerCanvas.width / 2;
+                const centerY = visualizerCanvas.height / 2;
                 const angleStep = (2 * Math.PI) / barCount;
-
-                // レインボーモードの色生成
-                let hue = (Date.now() % 3600) / 10; // 色相を時間で変化
+                let hue = (Date.now() % 3600) / 10;
 
                 for (let i = 0; i < barCount; i++) {
                     const barHeight = (dataArray[i] / 255) * maxBarHeight;
@@ -357,20 +524,18 @@
                     const x2 = centerX + (radius + barHeight) * Math.cos(angle);
                     const y2 = centerY + (radius + barHeight) * Math.sin(angle);
 
-                    ctx.beginPath();
-                    ctx.moveTo(x1, y1);
-                    ctx.lineTo(x2, y2);
-                    ctx.lineWidth = 4;
-                    ctx.strokeStyle = rainbowMode
+                    visualizerCtx.beginPath();
+                    visualizerCtx.moveTo(x1, y1);
+                    visualizerCtx.lineTo(x2, y2);
+                    visualizerCtx.lineWidth = 4;
+                    visualizerCtx.strokeStyle = rainbowMode
                         ? `hsl(${(hue + i * 5) % 360}, 100%, 50%)`
                         : colorPicker.value;
-                    ctx.stroke();
+                    visualizerCtx.stroke();
                 }
 
-                // 中央アイコンの描画
                 if (centralIcon) {
-                    const iconSize = 80;
-                    ctx.drawImage(
+                    visualizerCtx.drawImage(
                         centralIcon,
                         centerX - iconSize / 2,
                         centerY - iconSize / 2,
