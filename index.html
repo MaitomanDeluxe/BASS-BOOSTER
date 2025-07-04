@@ -14,7 +14,7 @@
     html, body {
       margin: 0;
       padding: 0;
-      background-color: #222;
+      background-color: #000;
       font-family: Arial, sans-serif;
       color: #eee;
     }
@@ -26,9 +26,6 @@
       min-height: 100vh;
       padding: 20px;
       box-sizing: border-box;
-    }
-    .container h1 {
-      color: #4CAF50;
     }
     .custom-file-upload {
       background-color: #4CAF50;
@@ -84,6 +81,10 @@
       border-radius: 5px;
       cursor: pointer;
     }
+    #currentFileName {
+      font-style: italic;
+      color: #ccc;
+    }
   </style>
 </head>
 <body>
@@ -93,7 +94,7 @@
     <label for="audioFile" class="custom-file-upload">
       音声ファイルをアップロード (MP3/WAV)
     </label>
-    <input type="file" id="audioFile" accept="audio/mp3,audio/wav">
+    <input type="file" id="audioFile" accept="audio/mp3,audio/wav" />
     <div id="currentFileName">ファイルが選択されていません</div>
 
     <audio id="audioPlayer" controls></audio>
@@ -126,7 +127,87 @@
   </div>
 
   <script>
+    const audioFile = document.getElementById("audioFile");
+    const currentFileName = document.getElementById("currentFileName");
+    const audioPlayer = document.getElementById("audioPlayer");
+    const bassGain = document.getElementById("bassGain");
+    const pitch = document.getElementById("pitch");
+    const volume = document.getElementById("volume");
+    const playbackRate = document.getElementById("playbackRate");
+    const bassValue = document.getElementById("bassValue");
+    const pitchValue = document.getElementById("pitchValue");
+    const volumeValue = document.getElementById("volumeValue");
+    const playbackRateValue = document.getElementById("playbackRateValue");
     const fullScreenBtn = document.getElementById("fullScreenBtn");
+    const canvas = document.getElementById("visualizer");
+    const ctx = canvas.getContext("2d");
+
+    let audioContext, source, gainNode, bassFilter, analyser, dataArray;
+
+    audioFile.addEventListener("change", async (event) => {
+      const file = event.target.files[0];
+      if (file) {
+        currentFileName.textContent = file.name;
+        const fileURL = URL.createObjectURL(file);
+        audioPlayer.src = fileURL;
+        audioPlayer.load();
+        await audioPlayer.play();
+
+        if (!audioContext) {
+          audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        } else {
+          audioContext.close();
+          audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+
+        source = audioContext.createMediaElementSource(audioPlayer);
+        gainNode = audioContext.createGain();
+        bassFilter = audioContext.createBiquadFilter();
+        bassFilter.type = 'lowshelf';
+        bassFilter.frequency.value = 250;
+        bassFilter.gain.value = parseFloat(bassGain.value);
+
+        analyser = audioContext.createAnalyser();
+        analyser.fftSize = 256;
+        dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+        source.connect(bassFilter);
+        bassFilter.connect(gainNode);
+        gainNode.connect(analyser);
+        analyser.connect(audioContext.destination);
+
+        draw();
+      }
+    });
+
+    bassGain.addEventListener("input", () => {
+      if (bassFilter) {
+        bassFilter.gain.value = parseFloat(bassGain.value);
+        bassValue.textContent = bassGain.value;
+      }
+    });
+
+    pitch.addEventListener("input", () => {
+      audioPlayer.playbackRate = parseFloat(pitch.value);
+      pitchValue.textContent = pitch.value;
+      playbackRate.value = pitch.value;
+      playbackRateValue.textContent = pitch.value;
+    });
+
+    volume.addEventListener("input", () => {
+      if (gainNode) {
+        gainNode.gain.value = parseFloat(volume.value);
+        volumeValue.textContent = Math.round(volume.value * 100);
+      }
+    });
+
+    playbackRate.addEventListener("input", () => {
+      audioPlayer.playbackRate = parseFloat(playbackRate.value);
+      playbackRateValue.textContent = playbackRate.value;
+      pitch.value = playbackRate.value;
+      pitchValue.textContent = playbackRate.value;
+    });
+
     fullScreenBtn.addEventListener("click", () => {
       const container = document.querySelector(".container");
       if (container.requestFullscreen) {
@@ -137,6 +218,21 @@
         container.msRequestFullscreen();
       }
     });
+
+    function draw() {
+      requestAnimationFrame(draw);
+      if (!analyser) return;
+      analyser.getByteFrequencyData(dataArray);
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      const barWidth = canvas.width / dataArray.length;
+      for (let i = 0; i < dataArray.length; i++) {
+        const barHeight = dataArray[i];
+        ctx.fillStyle = `hsl(${i * 3}, 100%, 50%)`;
+        ctx.fillRect(i * barWidth, canvas.height - barHeight, barWidth, barHeight);
+      }
+    }
   </script>
 </body>
 </html>
