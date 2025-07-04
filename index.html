@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Visualizer Fullscreen</title>
+  <title>Bass Booster with Visualizer</title>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#000000">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -14,138 +14,129 @@
     html, body {
       margin: 0;
       padding: 0;
-      overflow: hidden;
-      background-color: black;
-      font-family: sans-serif;
+      background-color: #222;
+      font-family: Arial, sans-serif;
+      color: #eee;
     }
-    #visualizer {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      background-color: black;
+    .container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px;
+      box-sizing: border-box;
     }
-    #songTitle {
-      position: absolute;
-      bottom: 20px;
-      left: 20px;
+    .container h1 {
+      color: #4CAF50;
+    }
+    .custom-file-upload {
+      background-color: #4CAF50;
       color: white;
-      font-size: 1.5em;
-      background: rgba(0, 0, 0, 0.5);
-      padding: 5px 10px;
+      padding: 12px 20px;
       border-radius: 5px;
+      cursor: pointer;
+      margin-bottom: 20px;
+      display: inline-block;
     }
     input[type="file"] {
       display: none;
     }
-    #fileLabel {
-      position: absolute;
-      top: 20px;
-      left: 20px;
+    audio {
+      width: 100%;
+      max-width: 500px;
+      margin-top: 20px;
+      border-radius: 5px;
+      background-color: #444;
+    }
+    canvas {
+      margin-top: 20px;
+      border-radius: 10px;
+      background-color: #000;
+    }
+    .controls {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      margin-top: 20px;
+      width: 100%;
+      max-width: 500px;
+    }
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      width: 100%;
+    }
+    label {
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+    input[type="range"] {
+      width: 100%;
+    }
+    #fullScreenBtn {
+      margin-top: 20px;
       background-color: #4CAF50;
       color: white;
       padding: 10px 15px;
+      border: none;
       border-radius: 5px;
       cursor: pointer;
-      z-index: 10;
-    }
-    #modeToggle {
-      display: flex;
-      flex-direction: column;
-      gap: 5px;
-    }
-    #settingsPanel {
-      position: absolute;
-      top: 20px;
-      right: 20px;
-      background: rgba(255, 255, 255, 0.1);
-      padding: 15px;
-      border-radius: 10px;
-      z-index: 10;
-      color: white;
-    }
-    .control-group {
-      margin-bottom: 10px;
-    }
-    .control-group label {
-      display: block;
-      font-size: 0.9em;
-      margin-bottom: 4px;
-    }
-    .control-group input[type="range"] {
-      width: 100%;
-    }
-    .toggle-option {
-      width: 40px;
-      height: 20px;
-      background: #ccc;
-      border-radius: 10px;
-      position: relative;
-      appearance: none;
-      outline: none;
-      cursor: pointer;
-    }
-    .toggle-option:checked {
-      background: #4CAF50;
-    }
-    .toggle-option::before {
-      content: '';
-      position: absolute;
-      top: 2px;
-      left: 2px;
-      width: 16px;
-      height: 16px;
-      background: white;
-      border-radius: 50%;
-      transition: 0.2s;
-    }
-    .toggle-option:checked::before {
-      transform: translateX(20px);
     }
   </style>
 </head>
 <body>
-  <label id="fileLabel" for="audioFile">音声を選択</label>
-  <input type="file" id="audioFile" accept="audio/mp3,audio/wav">
-  <canvas id="visualizer"></canvas>
-  <div id="songTitle">曲名がここに表示されます</div>
-  <div id="settingsPanel">
-    <div class="control-group">
-      <label>ビジュアライザーモード</label>
-      <div id="modeToggle">
-        <label><input type="radio" name="mode" class="toggle-option" checked value="bars"></label>
-        <label><input type="radio" name="mode" class="toggle-option" value="smooth"></label>
-        <label><input type="radio" name="mode" class="toggle-option" value="circle"></label>
+  <div class="container">
+    <h1>Bass Booster with Visualizer</h1>
+
+    <label for="audioFile" class="custom-file-upload">
+      音声ファイルをアップロード (MP3/WAV)
+    </label>
+    <input type="file" id="audioFile" accept="audio/mp3,audio/wav">
+    <div id="currentFileName">ファイルが選択されていません</div>
+
+    <audio id="audioPlayer" controls></audio>
+
+    <canvas id="visualizer" width="400" height="300"></canvas>
+
+    <button id="fullScreenBtn">フルスクリーン表示</button>
+
+    <div class="controls">
+      <div class="control-group">
+        <label for="bassGain">重低音 (Bass Boost): <span id="bassValue">0</span> dB</label>
+        <input type="range" id="bassGain" min="-30" max="30" value="0">
+      </div>
+
+      <div class="control-group">
+        <label for="pitch">ピッチ (Pitch): <span id="pitchValue">1</span></label>
+        <input type="range" id="pitch" min="0.5" max="2" value="1" step="0.01">
+      </div>
+
+      <div class="control-group">
+        <label for="volume">音量 (Volume): <span id="volumeValue">100</span> %</label>
+        <input type="range" id="volume" min="0" max="2" value="1" step="0.01">
+      </div>
+
+      <div class="control-group">
+        <label for="playbackRate">再生速度 (Playback Rate): <span id="playbackRateValue">1</span></label>
+        <input type="range" id="playbackRate" min="0.5" max="2" value="1" step="0.01">
       </div>
     </div>
-    <div class="control-group">
-      <label for="bassGain">重低音: <span id="bassValue">0</span>dB</label>
-      <input type="range" id="bassGain" min="-30" max="30" value="0">
-    </div>
-    <div class="control-group">
-      <label for="pitch">ピッチ: <span id="pitchValue">1.0</span></label>
-      <input type="range" id="pitch" min="0.5" max="2" step="0.01" value="1">
-    </div>
-    <div class="control-group">
-      <label for="volume">音量: <span id="volumeValue">100</span>%</label>
-      <input type="range" id="volume" min="0" max="2" step="0.01" value="1">
-    </div>
-    <div class="control-group">
-      <label for="playbackRate">再生速度: <span id="playbackRateValue">1.0</span></label>
-      <input type="range" id="playbackRate" min="0.5" max="2" step="0.01" value="1">
-    </div>
-    <div class="control-group">
-      <label for="colorPicker">色選択</label>
-      <input type="color" id="colorPicker" value="#4CAF50">
-    </div>
-    <div class="control-group">
-      <label>レインボーモード</label>
-      <input type="checkbox" id="rainbowMode" class="toggle-option">
-    </div>
   </div>
+
   <script>
-    // JavaScriptの設定や操作はこの下に引き続き記述（省略）
+    const fullScreenBtn = document.getElementById("fullScreenBtn");
+    fullScreenBtn.addEventListener("click", () => {
+      const container = document.querySelector(".container");
+      if (container.requestFullscreen) {
+        container.requestFullscreen();
+      } else if (container.webkitRequestFullscreen) {
+        container.webkitRequestFullscreen();
+      } else if (container.msRequestFullscreen) {
+        container.msRequestFullscreen();
+      }
+    });
   </script>
 </body>
 </html>
