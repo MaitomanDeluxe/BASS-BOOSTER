@@ -51,23 +51,38 @@
       z-index: 10;
     }
     #modeToggle {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    #settingsPanel {
       position: absolute;
       top: 20px;
       right: 20px;
+      background: rgba(255, 255, 255, 0.1);
+      padding: 15px;
+      border-radius: 10px;
       z-index: 10;
-      display: flex;
-      gap: 10px;
-      background: rgba(255,255,255,0.1);
-      border-radius: 20px;
-      padding: 5px 10px;
+      color: white;
+    }
+    .control-group {
+      margin-bottom: 10px;
+    }
+    .control-group label {
+      display: block;
+      font-size: 0.9em;
+      margin-bottom: 4px;
+    }
+    .control-group input[type="range"] {
+      width: 100%;
     }
     .toggle-option {
-      appearance: none;
       width: 40px;
       height: 20px;
       background: #ccc;
       border-radius: 10px;
       position: relative;
+      appearance: none;
       outline: none;
       cursor: pointer;
     }
@@ -91,134 +106,46 @@
   </style>
 </head>
 <body>
-  <label id="fileLabel" for="audioFile">音楽を選択</label>
-  <input type="file" id="audioFile" accept="audio/*">
+  <label id="fileLabel" for="audioFile">音声を選択</label>
+  <input type="file" id="audioFile" accept="audio/mp3,audio/wav">
   <canvas id="visualizer"></canvas>
   <div id="songTitle">曲名がここに表示されます</div>
-  <div id="modeToggle">
-    <label title="Bars"><input type="radio" name="mode" class="toggle-option" checked value="bars"></label>
-    <label title="Smooth"><input type="radio" name="mode" class="toggle-option" value="smooth"></label>
-    <label title="Circle"><input type="radio" name="mode" class="toggle-option" value="circle"></label>
+  <div id="settingsPanel">
+    <div class="control-group">
+      <label>ビジュアライザーモード</label>
+      <div id="modeToggle">
+        <label><input type="radio" name="mode" class="toggle-option" checked value="bars"></label>
+        <label><input type="radio" name="mode" class="toggle-option" value="smooth"></label>
+        <label><input type="radio" name="mode" class="toggle-option" value="circle"></label>
+      </div>
+    </div>
+    <div class="control-group">
+      <label for="bassGain">重低音: <span id="bassValue">0</span>dB</label>
+      <input type="range" id="bassGain" min="-30" max="30" value="0">
+    </div>
+    <div class="control-group">
+      <label for="pitch">ピッチ: <span id="pitchValue">1.0</span></label>
+      <input type="range" id="pitch" min="0.5" max="2" step="0.01" value="1">
+    </div>
+    <div class="control-group">
+      <label for="volume">音量: <span id="volumeValue">100</span>%</label>
+      <input type="range" id="volume" min="0" max="2" step="0.01" value="1">
+    </div>
+    <div class="control-group">
+      <label for="playbackRate">再生速度: <span id="playbackRateValue">1.0</span></label>
+      <input type="range" id="playbackRate" min="0.5" max="2" step="0.01" value="1">
+    </div>
+    <div class="control-group">
+      <label for="colorPicker">色選択</label>
+      <input type="color" id="colorPicker" value="#4CAF50">
+    </div>
+    <div class="control-group">
+      <label>レインボーモード</label>
+      <input type="checkbox" id="rainbowMode" class="toggle-option">
+    </div>
   </div>
-
   <script>
-    const audioFile = document.getElementById('audioFile');
-    const canvas = document.getElementById('visualizer');
-    const ctx = canvas.getContext('2d');
-    const songTitle = document.getElementById('songTitle');
-    const modeRadios = document.querySelectorAll('input[name="mode"]');
-
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-
-    window.addEventListener('resize', () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-    });
-
-    let audioContext, analyser, source, dataArray, bufferLength;
-    let audio = new Audio();
-    let drawFunction = null;
-
-    function setupAudioContext() {
-      audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      source = audioContext.createMediaElementSource(audio);
-      analyser = audioContext.createAnalyser();
-      analyser.fftSize = 2048;
-      bufferLength = analyser.frequencyBinCount;
-      dataArray = new Uint8Array(bufferLength);
-      source.connect(analyser);
-      analyser.connect(audioContext.destination);
-    }
-
-    function drawBars() {
-      drawFunction = function draw() {
-        requestAnimationFrame(drawFunction);
-        analyser.getByteFrequencyData(dataArray);
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        const barWidth = (canvas.width / bufferLength) * 2.5;
-        let x = 0;
-        for (let i = 0; i < bufferLength; i++) {
-          const barHeight = dataArray[i];
-          ctx.fillStyle = `rgb(${barHeight+100},${i*3},100)`;
-          ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
-          x += barWidth + 1;
-        }
-      };
-      drawFunction();
-    }
-
-    function drawSmoothDual() {
-      drawFunction = function draw() {
-        requestAnimationFrame(drawFunction);
-        analyser.getByteFrequencyData(dataArray);
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        const centerY = canvas.height / 2;
-        const barWidth = canvas.width / bufferLength;
-        for (let i = 0; i < bufferLength; i++) {
-          const value = dataArray[i];
-          const height = value / 255 * canvas.height / 2;
-          ctx.fillStyle = `hsl(${i * 360 / bufferLength}, 100%, 50%)`;
-          ctx.fillRect(i * barWidth, centerY - height, barWidth, height * 2);
-        }
-      };
-      drawFunction();
-    }
-
-    function drawCircles() {
-      drawFunction = function draw() {
-        requestAnimationFrame(drawFunction);
-        analyser.getByteFrequencyData(dataArray);
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        const centerX = canvas.width / 2;
-        const centerY = canvas.height / 2;
-        for (let i = 0; i < bufferLength; i++) {
-          const value = dataArray[i];
-          const radius = value / 2;
-          const angle = i * (2 * Math.PI / bufferLength);
-          const x = centerX + Math.cos(angle) * radius;
-          const y = centerY + Math.sin(angle) * radius;
-          ctx.beginPath();
-          ctx.arc(x, y, 2, 0, Math.PI * 2);
-          ctx.fillStyle = `hsl(${i * 360 / bufferLength}, 100%, 50%)`;
-          ctx.fill();
-        }
-      };
-      drawFunction();
-    }
-
-    audioFile.addEventListener('change', (event) => {
-      const file = event.target.files[0];
-      if (file) {
-        const url = URL.createObjectURL(file);
-        audio.src = url;
-        audio.play();
-        songTitle.textContent = file.name;
-        if (!audioContext) setupAudioContext();
-        switchVisualizer(getCurrentMode());
-      }
-    });
-
-    function getCurrentMode() {
-      const checked = document.querySelector('input[name="mode"]:checked');
-      return checked ? checked.value : 'bars';
-    }
-
-    function switchVisualizer(mode) {
-      if (drawFunction) drawFunction = null; // reset
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      if (mode === 'bars') drawBars();
-      if (mode === 'smooth') drawSmoothDual();
-      if (mode === 'circle') drawCircles();
-    }
-
-    modeRadios.forEach(r => {
-      r.addEventListener('change', () => {
-        switchVisualizer(r.value);
-      });
-    });
+    // JavaScriptの設定や操作はこの下に引き続き記述（省略）
   </script>
 </body>
 </html>
