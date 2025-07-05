@@ -18,6 +18,7 @@
       font-family: Arial, sans-serif;
       color: #eee;
       overflow: hidden;
+      height: 100%;
     }
 
     .background {
@@ -59,15 +60,16 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
+      justify-content: flex-start;
       height: 100vh;
+      overflow-y: auto;
       box-sizing: border-box;
-      padding: 10px;
+      padding: 10px 10px 100px;
     }
 
     h1 {
       color: #4caf50;
-      margin: 0;
+      margin: 10px 0;
     }
 
     .custom-file-upload, #fullScreenBtn, #rainbowToggle {
@@ -99,7 +101,7 @@
     canvas {
       background: #000;
       display: block;
-      margin-top: 10px;
+      margin: 20px auto;
       border-radius: 10px;
     }
 
@@ -267,9 +269,10 @@
         }
       } else if (type === 'circle') {
         const cx = w / 2, cy = h / 2;
-        const radius = 80;
-        const maxLen = 60;
+        const radius = 60;
+        const maxLen = 40;
         const step = (2 * Math.PI) / len;
+        ctx.lineWidth = 2;
         for (let i = 0; i < len; i++) {
           const val = dataArray[i];
           const angle = i * step;
@@ -292,6 +295,7 @@
         }
         const hue = (Date.now() / 20) % 360;
         ctx.strokeStyle = rainbow ? `hsl(${hue},100%,50%)` : '#fff';
+        ctx.lineWidth = 2;
         ctx.stroke();
       }
     }
