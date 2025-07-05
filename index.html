@@ -39,18 +39,9 @@
     }
 
     @keyframes twinkle {
-      0% {
-        opacity: 0;
-        transform: scale(0.5);
-      }
-      50% {
-        opacity: 1;
-        transform: scale(1);
-      }
-      100% {
-        opacity: 0;
-        transform: scale(0.5);
-      }
+      0% { opacity: 0; transform: scale(0.5); }
+      50% { opacity: 1; transform: scale(1); }
+      100% { opacity: 0; transform: scale(0.5); }
     }
 
     .container {
@@ -62,11 +53,12 @@
       justify-content: center;
       height: 100vh;
       box-sizing: border-box;
-      padding: 20px;
+      padding: 10px;
     }
 
     h1 {
       color: #4caf50;
+      margin-bottom: 10px;
     }
 
     .custom-file-upload, #fullScreenBtn, #rainbowToggle {
@@ -76,12 +68,10 @@
       border: none;
       border-radius: 5px;
       cursor: pointer;
-      margin: 10px;
+      margin: 10px 5px;
     }
 
-    input[type='file'] {
-      display: none;
-    }
+    input[type='file'] { display: none; }
 
     audio {
       width: 100%;
@@ -92,8 +82,36 @@
     canvas {
       background: #000;
       display: block;
-      margin-top: 10px;
+      margin: 10px auto;
       border-radius: 10px;
+    }
+
+    .sliders {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .slider-group {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: #111;
+      padding: 10px;
+      border-radius: 10px;
+      width: 130px;
+    }
+
+    .slider-group label {
+      font-size: 12px;
+      margin-bottom: 5px;
+      color: #ccc;
+    }
+
+    .slider-group input[type="range"] {
+      width: 100%;
     }
   </style>
 </head>
@@ -104,16 +122,35 @@
     <label for="audioFile" class="custom-file-upload">音声ファイルをアップロード (MP3/WAV)</label>
     <input type="file" id="audioFile" accept="audio/mp3,audio/wav" />
     <audio id="audioPlayer" controls></audio>
-    <canvas id="visualizer" width="800" height="300"></canvas>
-    <button id="fullScreenBtn">フルスクリーン表示</button>
-    <button id="rainbowToggle">レインボーモード: OFF</button>
+    <canvas id="visualizer" width="800" height="250"></canvas>
+    <div class="sliders">
+      <div class="slider-group">
+        <label for="bassGain">重低音</label>
+        <input type="range" id="bassGain" min="-30" max="30" value="0">
+      </div>
+      <div class="slider-group">
+        <label for="pitch">ピッチ</label>
+        <input type="range" id="pitch" min="0.5" max="2" step="0.01" value="1">
+      </div>
+      <div class="slider-group">
+        <label for="volume">音量</label>
+        <input type="range" id="volume" min="0" max="2" step="0.01" value="1">
+      </div>
+      <div class="slider-group">
+        <label for="playbackRate">再生速度</label>
+        <input type="range" id="playbackRate" min="0.5" max="2" step="0.01" value="1">
+      </div>
+    </div>
+    <div>
+      <button id="fullScreenBtn">フルスクリーン表示</button>
+      <button id="rainbowToggle">レインボーモード: OFF</button>
+    </div>
   </div>
 
   <script>
     document.addEventListener('DOMContentLoaded', () => {
       const background = document.querySelector('.background');
-      const numberOfStars = 100;
-      for (let i = 0; i < numberOfStars; i++) {
+      for (let i = 0; i < 100; i++) {
         const star = document.createElement('div');
         star.classList.add('star');
         const size = Math.random() * 3 + 1;
@@ -132,9 +169,13 @@
     const ctx = canvas.getContext('2d');
     const rainbowToggle = document.getElementById('rainbowToggle');
     const fullScreenBtn = document.getElementById('fullScreenBtn');
+    const bassGain = document.getElementById('bassGain');
+    const pitch = document.getElementById('pitch');
+    const volume = document.getElementById('volume');
+    const playbackRate = document.getElementById('playbackRate');
 
     let rainbow = false;
-    let audioContext, source, analyser, dataArray;
+    let audioContext, source, analyser, gainNode, bassFilter, dataArray;
 
     rainbowToggle.addEventListener('click', () => {
       rainbow = !rainbow;
@@ -157,16 +198,43 @@
     function setupAudio() {
       audioContext = new (window.AudioContext || window.webkitAudioContext)();
       source = audioContext.createMediaElementSource(audioPlayer);
+      gainNode = audioContext.createGain();
+      bassFilter = audioContext.createBiquadFilter();
+      bassFilter.type = 'lowshelf';
+      bassFilter.frequency.value = 250;
       analyser = audioContext.createAnalyser();
       analyser.fftSize = 256;
       dataArray = new Uint8Array(analyser.frequencyBinCount);
-      source.connect(analyser);
+
+      source.connect(bassFilter);
+      bassFilter.connect(gainNode);
+      gainNode.connect(analyser);
       analyser.connect(audioContext.destination);
+
       draw();
     }
 
+    bassGain.addEventListener('input', () => {
+      if (bassFilter) bassFilter.gain.value = parseFloat(bassGain.value);
+    });
+
+    pitch.addEventListener('input', () => {
+      audioPlayer.playbackRate = parseFloat(pitch.value);
+      playbackRate.value = pitch.value;
+    });
+
+    playbackRate.addEventListener('input', () => {
+      audioPlayer.playbackRate = parseFloat(playbackRate.value);
+      pitch.value = playbackRate.value;
+    });
+
+    volume.addEventListener('input', () => {
+      if (gainNode) gainNode.gain.value = parseFloat(volume.value);
+    });
+
     function draw() {
       requestAnimationFrame(draw);
+      if (!analyser) return;
       analyser.getByteFrequencyData(dataArray);
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       const barWidth = canvas.width / dataArray.length;
