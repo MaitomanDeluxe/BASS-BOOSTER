@@ -53,13 +53,10 @@
       justify-content: center;
       height: 100vh;
       box-sizing: border-box;
-      padding: 10px;
+      padding: 20px;
     }
 
-    h1 {
-      color: #4caf50;
-      margin-bottom: 10px;
-    }
+    h1 { color: #4caf50; }
 
     .custom-file-upload, #fullScreenBtn, #rainbowToggle {
       background-color: #4caf50;
@@ -68,10 +65,16 @@
       border: none;
       border-radius: 5px;
       cursor: pointer;
-      margin: 10px 5px;
+      margin: 10px;
     }
 
     input[type='file'] { display: none; }
+
+    #fileNameDisplay {
+      margin-bottom: 10px;
+      color: #ccc;
+      font-size: 0.9em;
+    }
 
     audio {
       width: 100%;
@@ -82,36 +85,38 @@
     canvas {
       background: #000;
       display: block;
-      margin: 10px auto;
-      border-radius: 10px;
-    }
-
-    .sliders {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 10px;
       margin-top: 10px;
+      border-radius: 10px;
     }
 
     .slider-group {
       display: flex;
       flex-direction: column;
       align-items: center;
-      background: #111;
-      padding: 10px;
-      border-radius: 10px;
-      width: 130px;
+      gap: 10px;
+      margin-top: 20px;
     }
 
-    .slider-group label {
-      font-size: 12px;
+    .slider-wrapper {
+      width: 80%;
+      max-width: 500px;
+      text-align: center;
+    }
+
+    .slider-wrapper label {
+      display: block;
       margin-bottom: 5px;
-      color: #ccc;
     }
 
-    .slider-group input[type="range"] {
+    .slider-wrapper input[type="range"] {
       width: 100%;
+    }
+
+    select {
+      margin-top: 10px;
+      padding: 5px;
+      border-radius: 5px;
+      border: none;
     }
   </style>
 </head>
@@ -121,61 +126,57 @@
     <h1>Bass Booster with Visualizer</h1>
     <label for="audioFile" class="custom-file-upload">音声ファイルをアップロード (MP3/WAV)</label>
     <input type="file" id="audioFile" accept="audio/mp3,audio/wav" />
+    <div id="fileNameDisplay">ファイル未選択</div>
     <audio id="audioPlayer" controls></audio>
-    <canvas id="visualizer" width="800" height="250"></canvas>
-    <div class="sliders">
-      <div class="slider-group">
-        <label for="bassGain">重低音</label>
-        <input type="range" id="bassGain" min="-30" max="30" value="0">
+    <canvas id="visualizer" width="800" height="300"></canvas>
+    <button id="fullScreenBtn">フルスクリーン表示</button>
+    <button id="rainbowToggle">レインボーモード: OFF</button>
+    <select id="visualizerType">
+      <option value="bars">棒グラフ</option>
+      <option value="circle">円形</option>
+      <option value="wave">波形</option>
+    </select>
+    <div class="slider-group">
+      <div class="slider-wrapper">
+        <label for="bass">重低音: <span id="bassValue">0.0dB</span></label>
+        <input type="range" id="bass" min="-30" max="30" value="0" step="0.1" />
       </div>
-      <div class="slider-group">
-        <label for="pitch">ピッチ</label>
-        <input type="range" id="pitch" min="0.5" max="2" step="0.01" value="1">
+      <div class="slider-wrapper">
+        <label for="pitch">ピッチ: <span id="pitchValue">1.0x</span></label>
+        <input type="range" id="pitch" min="0.5" max="2" value="1" step="0.01" />
       </div>
-      <div class="slider-group">
-        <label for="volume">音量</label>
-        <input type="range" id="volume" min="0" max="2" step="0.01" value="1">
+      <div class="slider-wrapper">
+        <label for="volume">音量: <span id="volumeValue">1.0x</span></label>
+        <input type="range" id="volume" min="0" max="2" value="1" step="0.01" />
       </div>
-      <div class="slider-group">
-        <label for="playbackRate">再生速度</label>
-        <input type="range" id="playbackRate" min="0.5" max="2" step="0.01" value="1">
+      <div class="slider-wrapper">
+        <label for="rate">再生速度: <span id="rateValue">1.0x</span></label>
+        <input type="range" id="rate" min="0.5" max="2" value="1" step="0.01" />
       </div>
-    </div>
-    <div>
-      <button id="fullScreenBtn">フルスクリーン表示</button>
-      <button id="rainbowToggle">レインボーモード: OFF</button>
     </div>
   </div>
-
   <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      const background = document.querySelector('.background');
-      for (let i = 0; i < 100; i++) {
-        const star = document.createElement('div');
-        star.classList.add('star');
-        const size = Math.random() * 3 + 1;
-        star.style.width = `${size}px`;
-        star.style.height = `${size}px`;
-        star.style.top = `${Math.random() * 100}%`;
-        star.style.left = `${Math.random() * 100}%`;
-        star.style.animationDelay = `${Math.random() * 4}s`;
-        background.appendChild(star);
-      }
-    });
-
+    const fileNameDisplay = document.getElementById('fileNameDisplay');
     const audioFile = document.getElementById('audioFile');
     const audioPlayer = document.getElementById('audioPlayer');
     const canvas = document.getElementById('visualizer');
     const ctx = canvas.getContext('2d');
     const rainbowToggle = document.getElementById('rainbowToggle');
     const fullScreenBtn = document.getElementById('fullScreenBtn');
-    const bassGain = document.getElementById('bassGain');
+    const visualizerType = document.getElementById('visualizerType');
+
+    const bass = document.getElementById('bass');
     const pitch = document.getElementById('pitch');
     const volume = document.getElementById('volume');
-    const playbackRate = document.getElementById('playbackRate');
+    const rate = document.getElementById('rate');
+
+    const bassValue = document.getElementById('bassValue');
+    const pitchValue = document.getElementById('pitchValue');
+    const volumeValue = document.getElementById('volumeValue');
+    const rateValue = document.getElementById('rateValue');
 
     let rainbow = false;
-    let audioContext, source, analyser, gainNode, bassFilter, dataArray;
+    let audioContext, source, analyser, gainNode, bassEQ, dataArray;
 
     rainbowToggle.addEventListener('click', () => {
       rainbow = !rainbow;
@@ -189,6 +190,8 @@
     audioFile.addEventListener('change', () => {
       const file = audioFile.files[0];
       if (!file) return;
+      const baseName = file.name.replace(/\.[^/.]+$/, "");
+      fileNameDisplay.textContent = baseName;
       audioPlayer.src = URL.createObjectURL(file);
       audioPlayer.load();
       audioPlayer.play();
@@ -198,53 +201,102 @@
     function setupAudio() {
       audioContext = new (window.AudioContext || window.webkitAudioContext)();
       source = audioContext.createMediaElementSource(audioPlayer);
-      gainNode = audioContext.createGain();
-      bassFilter = audioContext.createBiquadFilter();
-      bassFilter.type = 'lowshelf';
-      bassFilter.frequency.value = 250;
       analyser = audioContext.createAnalyser();
       analyser.fftSize = 256;
       dataArray = new Uint8Array(analyser.frequencyBinCount);
+      gainNode = audioContext.createGain();
+      bassEQ = audioContext.createBiquadFilter();
+      bassEQ.type = 'lowshelf';
+      bassEQ.frequency.value = 250;
 
-      source.connect(bassFilter);
-      bassFilter.connect(gainNode);
+      source.connect(bassEQ);
+      bassEQ.connect(gainNode);
       gainNode.connect(analyser);
       analyser.connect(audioContext.destination);
-
       draw();
     }
 
-    bassGain.addEventListener('input', () => {
-      if (bassFilter) bassFilter.gain.value = parseFloat(bassGain.value);
-    });
-
-    pitch.addEventListener('input', () => {
-      audioPlayer.playbackRate = parseFloat(pitch.value);
-      playbackRate.value = pitch.value;
-    });
-
-    playbackRate.addEventListener('input', () => {
-      audioPlayer.playbackRate = parseFloat(playbackRate.value);
-      pitch.value = playbackRate.value;
-    });
-
-    volume.addEventListener('input', () => {
-      if (gainNode) gainNode.gain.value = parseFloat(volume.value);
-    });
-
     function draw() {
       requestAnimationFrame(draw);
-      if (!analyser) return;
       analyser.getByteFrequencyData(dataArray);
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      const barWidth = canvas.width / dataArray.length;
-      for (let i = 0; i < dataArray.length; i++) {
-        const val = dataArray[i];
-        const hue = (Date.now() / 20 + i * 4) % 360;
-        ctx.fillStyle = rainbow ? `hsl(${hue}, 100%, 50%)` : '#fff';
-        ctx.fillRect(i * barWidth, canvas.height - val, barWidth - 2, val);
+      const type = visualizerType.value;
+      const len = dataArray.length;
+
+      if (type === 'bars') {
+        const barWidth = canvas.width / len;
+        for (let i = 0; i < len; i++) {
+          const val = dataArray[i];
+          const hue = (Date.now() / 20 + i * 4) % 360;
+          ctx.fillStyle = rainbow ? `hsl(${hue}, 100%, 50%)` : '#fff';
+          ctx.fillRect(i * barWidth, canvas.height - val, barWidth - 2, val);
+        }
+      } else if (type === 'circle') {
+        const cx = canvas.width / 2;
+        const cy = canvas.height / 2;
+        const radius = 80;
+        const angleStep = (Math.PI * 2) / len;
+        for (let i = 0; i < len; i++) {
+          const val = dataArray[i];
+          const angle = i * angleStep;
+          const inner = radius;
+          const outer = radius + val / 2;
+          const x1 = cx + inner * Math.cos(angle);
+          const y1 = cy + inner * Math.sin(angle);
+          const x2 = cx + outer * Math.cos(angle);
+          const y2 = cy + outer * Math.sin(angle);
+          const hue = (Date.now() / 20 + i * 4) % 360;
+          ctx.strokeStyle = rainbow ? `hsl(${hue}, 100%, 50%)` : '#fff';
+          ctx.beginPath();
+          ctx.moveTo(x1, y1);
+          ctx.lineTo(x2, y2);
+          ctx.stroke();
+        }
+      } else if (type === 'wave') {
+        ctx.beginPath();
+        for (let i = 0; i < len; i++) {
+          const x = (i / len) * canvas.width;
+          const y = canvas.height / 2 - (dataArray[i] - 128);
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.strokeStyle = rainbow ? `hsl(${Date.now() / 20 % 360}, 100%, 50%)` : '#fff';
+        ctx.stroke();
       }
     }
+
+    bass.addEventListener('input', () => {
+      bassEQ.gain.value = bass.value;
+      bassValue.textContent = `${parseFloat(bass.value).toFixed(1)}dB`;
+    });
+    pitch.addEventListener('input', () => {
+      audioPlayer.playbackRate = pitch.value;
+      pitchValue.textContent = `${parseFloat(pitch.value).toFixed(2)}x`;
+    });
+    volume.addEventListener('input', () => {
+      gainNode.gain.value = volume.value;
+      volumeValue.textContent = `${parseFloat(volume.value).toFixed(2)}x`;
+    });
+    rate.addEventListener('input', () => {
+      audioPlayer.playbackRate = rate.value;
+      rateValue.textContent = `${parseFloat(rate.value).toFixed(2)}x`;
+    });
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const background = document.querySelector('.background');
+      const numberOfStars = 100;
+      for (let i = 0; i < numberOfStars; i++) {
+        const star = document.createElement('div');
+        star.classList.add('star');
+        const size = Math.random() * 3 + 1;
+        star.style.width = `${size}px`;
+        star.style.height = `${size}px`;
+        star.style.top = `${Math.random() * 100}%`;
+        star.style.left = `${Math.random() * 100}%`;
+        star.style.animationDelay = `${Math.random() * 4}s`;
+        background.appendChild(star);
+      }
+    });
   </script>
 </body>
 </html>
