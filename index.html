@@ -11,45 +11,71 @@
   <meta name="apple-mobile-web-app-title" content="Visualizer" />
   <link rel="apple-touch-icon" href="icon.png" />
   <style>
-    html,
-    body {
+    html, body {
       margin: 0;
       padding: 0;
-      overflow: hidden;
       background-color: #000;
       font-family: Arial, sans-serif;
       color: #eee;
       -webkit-tap-highlight-color: transparent;
+      overflow: hidden;
+    }
+
+    .background {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: -1;
+    }
+
+    .star {
+      position: absolute;
+      background-color: #fff;
+      border-radius: 50%;
+      opacity: 0;
+      animation: twinkle 4s infinite ease-in-out alternate;
+    }
+
+    @keyframes twinkle {
+      0% {
+        opacity: 0;
+        transform: scale(0.5);
+      }
+      50% {
+        opacity: 1;
+        transform: scale(1);
+      }
+      100% {
+        opacity: 0;
+        transform: scale(0.5);
+      }
     }
 
     .container {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      width: 100vw;
-      max-width: 500px;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
       box-sizing: border-box;
       padding: 20px;
-      text-align: center;
     }
 
-    h1 {
-      margin-bottom: 15px;
-      font-size: 1.2em;
-      color: #4caf50;
-    }
-
-    .custom-file-upload {
+    .custom-file-upload,
+    #fullScreenBtn,
+    #rainbowToggle {
       background-color: #4caf50;
       color: white;
-      padding: 8px 14px;
+      padding: 10px 15px;
+      margin: 10px 0;
+      border: none;
       border-radius: 5px;
       cursor: pointer;
-      margin-bottom: 10px;
-      display: inline-block;
       user-select: none;
-      font-size: 0.9em;
     }
 
     input[type='file'] {
@@ -57,111 +83,103 @@
     }
 
     audio {
-      width: 100%;
       margin-top: 10px;
       border-radius: 5px;
-      background-color: #444;
     }
 
     canvas {
-      margin: 10px 0;
+      margin-top: 10px;
       border-radius: 10px;
       background-color: #000;
-      display: block;
-      width: 100%;
-      height: auto;
-    }
-
-    .controls {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      margin-top: 10px;
-    }
-
-    .control-group {
-      text-align: left;
-    }
-
-    label {
-      margin-bottom: 2px;
-      font-size: 0.8em;
-    }
-
-    input[type='range'] {
-      width: 100%;
-    }
-
-    #fullScreenBtn,
-    #rainbowToggle {
-      margin-top: 10px;
-      background-color: #4caf50;
-      color: white;
-      padding: 6px 10px;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-      font-size: 0.8em;
-    }
-
-    #currentFileName {
-      font-style: italic;
-      color: #ccc;
-      margin: 5px 0;
-      font-size: 0.8em;
-    }
-
-    #colorPicker {
-      margin-top: 5px;
-      width: 30px;
-      height: 24px;
-      border: none;
-      background: transparent;
-    }
-
-    #visualizerTypeSelector {
-      margin-top: 5px;
-      padding: 4px;
-      border-radius: 5px;
-      border: none;
-      font-size: 0.8em;
     }
   </style>
 </head>
 <body>
+  <div class="background"></div>
   <div class="container">
-    <h1>Bass Booster with Visualizer</h1>
-    <label for="audioFile" class="custom-file-upload">音声ファイルをアップロード</label>
+    <label for="audioFile" class="custom-file-upload">音声ファイルをアップロード (MP3/WAV)</label>
     <input type="file" id="audioFile" accept="audio/mp3,audio/wav" />
-    <div id="currentFileName">ファイルが選択されていません</div>
     <audio id="audioPlayer" controls></audio>
-    <canvas id="visualizer" width="400" height="200"></canvas>
-    <button id="fullScreenBtn">フルスクリーン</button>
+    <canvas id="visualizer" width="800" height="400"></canvas>
+    <button id="fullScreenBtn">フルスクリーン表示</button>
     <button id="rainbowToggle">レインボーモード: OFF</button>
-    <input type="color" id="colorPicker" value="#ffffff" />
-    <select id="visualizerTypeSelector">
-      <option value="bars">棒グラフ</option>
-      <option value="double">円リング</option>
-      <option value="wave">波形</option>
-    </select>
-    <div class="controls">
-      <div class="control-group">
-        <label for="bassGain">重低音: <span id="bassValue">0</span>dB</label>
-        <input type="range" id="bassGain" min="-30" max="30" value="0" />
-      </div>
-      <div class="control-group">
-        <label for="pitch">ピッチ: <span id="pitchValue">1</span></label>
-        <input type="range" id="pitch" min="0.5" max="2" value="1" step="0.01" />
-      </div>
-      <div class="control-group">
-        <label for="volume">音量: <span id="volumeValue">100</span>%</label>
-        <input type="range" id="volume" min="0" max="2" value="1" step="0.01" />
-      </div>
-      <div class="control-group">
-        <label for="playbackRate">再生速度: <span id="playbackRateValue">1</span></label>
-        <input type="range" id="playbackRate" min="0.5" max="2" value="1" step="0.01" />
-      </div>
-    </div>
   </div>
+
+  <script>
+    // 背景アニメーション
+    document.addEventListener('DOMContentLoaded', () => {
+      const background = document.querySelector('.background');
+      const numberOfStars = 100;
+
+      for (let i = 0; i < numberOfStars; i++) {
+        const star = document.createElement('div');
+        star.classList.add('star');
+        const size = Math.random() * 3 + 1;
+        star.style.width = `${size}px`;
+        star.style.height = `${size}px`;
+        star.style.top = `${Math.random() * 100}%`;
+        star.style.left = `${Math.random() * 100}%`;
+        star.style.animationDelay = `${Math.random() * 4}s`;
+        background.appendChild(star);
+      }
+    });
+
+    // ビジュアライザー
+    const audioFile = document.getElementById('audioFile');
+    const audioPlayer = document.getElementById('audioPlayer');
+    const canvas = document.getElementById('visualizer');
+    const ctx = canvas.getContext('2d');
+    const rainbowToggle = document.getElementById('rainbowToggle');
+    let rainbow = false;
+
+    rainbowToggle.addEventListener('click', () => {
+      rainbow = !rainbow;
+      rainbowToggle.textContent = rainbow ? 'レインボーモード: ON' : 'レインボーモード: OFF';
+    });
+
+    let audioContext, source, analyser, dataArray;
+
+    audioFile.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      audioPlayer.src = URL.createObjectURL(file);
+      audioPlayer.load();
+      await audioPlayer.play();
+
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      source = audioContext.createMediaElementSource(audioPlayer);
+      analyser = audioContext.createAnalyser();
+      analyser.fftSize = 256;
+      dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+      source.connect(analyser);
+      analyser.connect(audioContext.destination);
+
+      draw();
+    });
+
+    function draw() {
+      requestAnimationFrame(draw);
+      if (!analyser) return;
+      analyser.getByteFrequencyData(dataArray);
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const width = canvas.width;
+      const height = canvas.height;
+      const barWidth = width / dataArray.length;
+
+      for (let i = 0; i < dataArray.length; i++) {
+        const val = dataArray[i];
+        const hue = (Date.now() / 20 + i * 4) % 360;
+        const fillStyle = rainbow ? `hsl(${hue},100%,50%)` : '#ffffff';
+        ctx.fillStyle = fillStyle;
+        ctx.fillRect(i * barWidth, height - val, barWidth - 2, val);
+      }
+    }
+
+    document.getElementById('fullScreenBtn').addEventListener('click', () => {
+      if (canvas.requestFullscreen) canvas.requestFullscreen();
+    });
+  </script>
 </body>
 </html>
