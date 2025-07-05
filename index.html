@@ -4,238 +4,164 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Bass Booster with Visualizer</title>
+  <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#000000" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Visualizer" />
+  <link rel="apple-touch-icon" href="icon.png" />
   <style>
-    html, body {
+    html,
+    body {
       margin: 0;
       padding: 0;
+      overflow: hidden;
       background-color: #000;
       font-family: Arial, sans-serif;
       color: #eee;
       -webkit-tap-highlight-color: transparent;
-      overflow: hidden;
     }
-    .background {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
-      z-index: -1;
-    }
-    .star {
-      position: absolute;
-      background-color: #fff;
-      border-radius: 50%;
-      opacity: 0;
-      animation: twinkle 4s infinite ease-in-out alternate;
-    }
-    @keyframes twinkle {
-      0% { opacity: 0; transform: scale(0.5); }
-      50% { opacity: 1; transform: scale(1); }
-      100% { opacity: 0; transform: scale(0.5); }
-    }
+
     .container {
-      position: relative;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      padding: 20px;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 100vw;
+      max-width: 500px;
       box-sizing: border-box;
-      z-index: 1;
+      padding: 20px;
+      text-align: center;
     }
-    canvas {
-      margin-top: 20px;
-      border-radius: 10px;
-      background-color: transparent;
-      display: block;
+
+    h1 {
+      margin-bottom: 15px;
+      font-size: 1.2em;
+      color: #4caf50;
     }
-    .controls, #visualizerTypeSelector, #fullScreenBtn, #rainbowToggle, #colorPicker, .custom-file-upload, #currentFileName, audio {
-      margin-top: 10px;
-      z-index: 1;
-    }
+
     .custom-file-upload {
       background-color: #4caf50;
       color: white;
-      padding: 12px 20px;
+      padding: 8px 14px;
       border-radius: 5px;
       cursor: pointer;
+      margin-bottom: 10px;
       display: inline-block;
+      user-select: none;
+      font-size: 0.9em;
     }
-    input[type='file'] { display: none; }
-    input[type='range'], input[type='color'], select, button {
+
+    input[type='file'] {
+      display: none;
+    }
+
+    audio {
       width: 100%;
-      max-width: 300px;
-      margin: 5px auto;
-      display: block;
+      margin-top: 10px;
+      border-radius: 5px;
+      background-color: #444;
     }
-    button {
+
+    canvas {
+      margin: 10px 0;
+      border-radius: 10px;
+      background-color: #000;
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .controls {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .control-group {
+      text-align: left;
+    }
+
+    label {
+      margin-bottom: 2px;
+      font-size: 0.8em;
+    }
+
+    input[type='range'] {
+      width: 100%;
+    }
+
+    #fullScreenBtn,
+    #rainbowToggle {
+      margin-top: 10px;
       background-color: #4caf50;
       color: white;
-      padding: 10px;
+      padding: 6px 10px;
       border: none;
       border-radius: 5px;
       cursor: pointer;
+      font-size: 0.8em;
+    }
+
+    #currentFileName {
+      font-style: italic;
+      color: #ccc;
+      margin: 5px 0;
+      font-size: 0.8em;
+    }
+
+    #colorPicker {
+      margin-top: 5px;
+      width: 30px;
+      height: 24px;
+      border: none;
+      background: transparent;
+    }
+
+    #visualizerTypeSelector {
+      margin-top: 5px;
+      padding: 4px;
+      border-radius: 5px;
+      border: none;
+      font-size: 0.8em;
     }
   </style>
 </head>
 <body>
-  <div class="background"></div>
   <div class="container">
-    <label for="audioFile" class="custom-file-upload">音声ファイルをアップロード (MP3/WAV)</label>
+    <h1>Bass Booster with Visualizer</h1>
+    <label for="audioFile" class="custom-file-upload">音声ファイルをアップロード</label>
     <input type="file" id="audioFile" accept="audio/mp3,audio/wav" />
     <div id="currentFileName">ファイルが選択されていません</div>
     <audio id="audioPlayer" controls></audio>
-    <canvas id="visualizer" width="800" height="400"></canvas>
-    <button id="fullScreenBtn">フルスクリーン表示</button>
+    <canvas id="visualizer" width="400" height="200"></canvas>
+    <button id="fullScreenBtn">フルスクリーン</button>
     <button id="rainbowToggle">レインボーモード: OFF</button>
     <input type="color" id="colorPicker" value="#ffffff" />
     <select id="visualizerTypeSelector">
       <option value="bars">棒グラフ</option>
+      <option value="double">円リング</option>
       <option value="wave">波形</option>
-      <option value="circle">円形リング</option>
     </select>
     <div class="controls">
-      <label>重低音: <span id="bassVal">0</span> dB<input type="range" id="bass" min="-30" max="30" value="0"></label>
-      <label>音量: <span id="volumeVal">100</span>%<input type="range" id="volume" min="0" max="2" step="0.01" value="1"></label>
-      <label>ピッチ: <span id="pitchVal">1</span><input type="range" id="pitch" min="0.5" max="2" step="0.01" value="1"></label>
+      <div class="control-group">
+        <label for="bassGain">重低音: <span id="bassValue">0</span>dB</label>
+        <input type="range" id="bassGain" min="-30" max="30" value="0" />
+      </div>
+      <div class="control-group">
+        <label for="pitch">ピッチ: <span id="pitchValue">1</span></label>
+        <input type="range" id="pitch" min="0.5" max="2" value="1" step="0.01" />
+      </div>
+      <div class="control-group">
+        <label for="volume">音量: <span id="volumeValue">100</span>%</label>
+        <input type="range" id="volume" min="0" max="2" value="1" step="0.01" />
+      </div>
+      <div class="control-group">
+        <label for="playbackRate">再生速度: <span id="playbackRateValue">1</span></label>
+        <input type="range" id="playbackRate" min="0.5" max="2" value="1" step="0.01" />
+      </div>
     </div>
   </div>
-  <script>
-    // 星の背景生成
-    const background = document.querySelector('.background');
-    for (let i = 0; i < 100; i++) {
-      const star = document.createElement('div');
-      star.className = 'star';
-      const size = Math.random() * 3 + 1;
-      star.style.width = `${size}px`;
-      star.style.height = `${size}px`;
-      star.style.top = `${Math.random() * 100}%`;
-      star.style.left = `${Math.random() * 100}%`;
-      star.style.animationDelay = `${Math.random() * 4}s`;
-      background.appendChild(star);
-    }
-
-    const audioFile = document.getElementById('audioFile');
-    const audioPlayer = document.getElementById('audioPlayer');
-    const currentFileName = document.getElementById('currentFileName');
-    const canvas = document.getElementById('visualizer');
-    const ctx = canvas.getContext('2d');
-    const bassSlider = document.getElementById('bass');
-    const volumeSlider = document.getElementById('volume');
-    const pitchSlider = document.getElementById('pitch');
-    const bassVal = document.getElementById('bassVal');
-    const volumeVal = document.getElementById('volumeVal');
-    const pitchVal = document.getElementById('pitchVal');
-    const rainbowToggle = document.getElementById('rainbowToggle');
-    const colorPicker = document.getElementById('colorPicker');
-    const visualizerTypeSelector = document.getElementById('visualizerTypeSelector');
-    const fullScreenBtn = document.getElementById('fullScreenBtn');
-
-    let rainbow = false;
-    let color = '#ffffff';
-    let type = 'bars';
-    let ctxAudio, src, analyser, gainNode, bassEQ, dataArray;
-
-    rainbowToggle.onclick = () => {
-      rainbow = !rainbow;
-      rainbowToggle.textContent = rainbow ? 'レインボーモード: ON' : 'レインボーモード: OFF';
-    };
-    colorPicker.oninput = e => color = e.target.value;
-    visualizerTypeSelector.onchange = e => type = e.target.value;
-    fullScreenBtn.onclick = () => canvas.requestFullscreen?.();
-
-    audioFile.onchange = async e => {
-      const file = e.target.files[0];
-      if (!file) return;
-      currentFileName.textContent = file.name;
-      audioPlayer.src = URL.createObjectURL(file);
-      await audioPlayer.play();
-
-      ctxAudio = new (window.AudioContext || window.webkitAudioContext)();
-      src = ctxAudio.createMediaElementSource(audioPlayer);
-      analyser = ctxAudio.createAnalyser();
-      gainNode = ctxAudio.createGain();
-      bassEQ = ctxAudio.createBiquadFilter();
-      bassEQ.type = 'lowshelf';
-      bassEQ.frequency.value = 250;
-      analyser.fftSize = 256;
-      dataArray = new Uint8Array(analyser.frequencyBinCount);
-
-      src.connect(bassEQ);
-      bassEQ.connect(gainNode);
-      gainNode.connect(analyser);
-      analyser.connect(ctxAudio.destination);
-
-      draw();
-    };
-
-    bassSlider.oninput = e => {
-      bassEQ.gain.value = +e.target.value;
-      bassVal.textContent = e.target.value;
-    };
-    volumeSlider.oninput = e => {
-      gainNode.gain.value = +e.target.value;
-      volumeVal.textContent = Math.round(+e.target.value * 100);
-    };
-    pitchSlider.oninput = e => {
-      audioPlayer.playbackRate = +e.target.value;
-      pitchVal.textContent = e.target.value;
-    };
-
-    function draw() {
-      requestAnimationFrame(draw);
-      if (!analyser) return;
-      analyser.getByteFrequencyData(dataArray);
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      const w = canvas.width;
-      const h = canvas.height;
-      const len = dataArray.length;
-
-      if (type === 'bars') {
-        const barW = w / len;
-        for (let i = 0; i < len; i++) {
-          const val = dataArray[i];
-          const hue = (Date.now() / 20 + i * 4) % 360;
-          ctx.fillStyle = rainbow ? `hsl(${hue}, 100%, 50%)` : color;
-          ctx.fillRect(i * barW, h - val, barW - 2, val);
-        }
-      } else if (type === 'wave') {
-        ctx.beginPath();
-        for (let i = 0; i < len; i++) {
-          const y = (dataArray[i] / 255) * h;
-          ctx[i ? 'lineTo' : 'moveTo'](i * (w / len), y);
-        }
-        ctx.strokeStyle = rainbow ? `hsl(${Date.now() / 20 % 360}, 100%, 50%)` : color;
-        ctx.lineWidth = 2;
-        ctx.stroke();
-      } else if (type === 'circle') {
-        const cx = w / 2, cy = h / 2, base = 60, maxLen = 80;
-        const angleStep = (Math.PI * 2) / len;
-        for (let i = 0; i < len; i++) {
-          const val = dataArray[i];
-          const lenVal = (val / 255) * maxLen;
-          const angle = i * angleStep;
-          const sx = cx + Math.cos(angle) * base;
-          const sy = cy + Math.sin(angle) * base;
-          const ex = cx + Math.cos(angle) * (base + lenVal);
-          const ey = cy + Math.sin(angle) * (base + lenVal);
-          ctx.beginPath();
-          ctx.strokeStyle = rainbow ? `hsl(${(Date.now() / 20 + i * 3) % 360},100%,50%)` : color;
-          ctx.lineWidth = 2;
-          ctx.moveTo(sx, sy);
-          ctx.lineTo(ex, ey);
-          ctx.stroke();
-        }
-      }
-    }
-  </script>
 </body>
 </html>
