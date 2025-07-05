@@ -3,29 +3,33 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Visualizer</title>
+  <title>Bass Booster with Visualizer</title>
+  <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#000000" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Visualizer" />
+  <link rel="apple-touch-icon" href="icon.png" />
   <style>
     html, body {
       margin: 0;
       padding: 0;
-      height: 100vh;
-      overflow: hidden;
-      background: #000;
-      color: #fff;
+      background-color: #000;
       font-family: Arial, sans-serif;
+      color: #eee;
+      overflow: hidden;
     }
 
     .background {
       position: fixed;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
       pointer-events: none;
       z-index: 0;
     }
+
     .star {
       position: absolute;
       background-color: #fff;
@@ -33,147 +37,144 @@
       opacity: 0;
       animation: twinkle 4s infinite ease-in-out alternate;
     }
+
     @keyframes twinkle {
-      0% { opacity: 0; transform: scale(0.5); }
-      50% { opacity: 1; transform: scale(1); }
-      100% { opacity: 0; transform: scale(0.5); }
+      0% {
+        opacity: 0;
+        transform: scale(0.5);
+      }
+      50% {
+        opacity: 1;
+        transform: scale(1);
+      }
+      100% {
+        opacity: 0;
+        transform: scale(0.5);
+      }
     }
 
-    .ui {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      z-index: 2;
-      background: rgba(0, 0, 0, 0.6);
-      padding: 10px;
-      border-radius: 10px;
-      max-height: 95vh;
-      overflow-y: auto;
-    }
-    canvas {
-      position: absolute;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
+    .container {
+      position: relative;
       z-index: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      box-sizing: border-box;
+      padding: 20px;
     }
-    label, input, button, select {
+
+    h1 {
+      color: #4caf50;
+    }
+
+    .custom-file-upload, #fullScreenBtn, #rainbowToggle {
+      background-color: #4caf50;
+      color: white;
+      padding: 10px 15px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      margin: 10px;
+    }
+
+    input[type='file'] {
+      display: none;
+    }
+
+    audio {
+      width: 100%;
+      max-width: 500px;
+      margin-top: 10px;
+    }
+
+    canvas {
+      background: #000;
       display: block;
-      margin: 5px 0;
+      margin-top: 10px;
+      border-radius: 10px;
     }
   </style>
 </head>
 <body>
   <div class="background"></div>
-  <canvas id="visualizer"></canvas>
-  <div class="ui">
-    <label for="audioFile">音声ファイルを選択</label>
-    <input type="file" id="audioFile" accept="audio/*">
+  <div class="container">
+    <h1>Bass Booster with Visualizer</h1>
+    <label for="audioFile" class="custom-file-upload">音声ファイルをアップロード (MP3/WAV)</label>
+    <input type="file" id="audioFile" accept="audio/mp3,audio/wav" />
+    <audio id="audioPlayer" controls></audio>
+    <canvas id="visualizer" width="800" height="300"></canvas>
+    <button id="fullScreenBtn">フルスクリーン表示</button>
     <button id="rainbowToggle">レインボーモード: OFF</button>
-    <input type="color" id="colorPicker" value="#ffffff">
-    <select id="visualizerType">
-      <option value="bars">棒グラフ</option>
-      <option value="wave">波形</option>
-    </select>
-    <label>音量
-      <input type="range" id="volume" min="0" max="2" step="0.01" value="1">
-    </label>
   </div>
-  <script>
-    // 背景アニメーション
-    const background = document.querySelector('.background');
-    for (let i = 0; i < 100; i++) {
-      const star = document.createElement('div');
-      star.className = 'star';
-      const size = Math.random() * 3 + 1;
-      star.style.width = `${size}px`;
-      star.style.height = `${size}px`;
-      star.style.top = `${Math.random() * 100}%`;
-      star.style.left = `${Math.random() * 100}%`;
-      star.style.animationDelay = `${Math.random() * 4}s`;
-      background.appendChild(star);
-    }
 
-    // オーディオ & ビジュアライザー
-    const canvas = document.getElementById('visualizer');
-    const ctx = canvas.getContext('2d');
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const background = document.querySelector('.background');
+      const numberOfStars = 100;
+      for (let i = 0; i < numberOfStars; i++) {
+        const star = document.createElement('div');
+        star.classList.add('star');
+        const size = Math.random() * 3 + 1;
+        star.style.width = `${size}px`;
+        star.style.height = `${size}px`;
+        star.style.top = `${Math.random() * 100}%`;
+        star.style.left = `${Math.random() * 100}%`;
+        star.style.animationDelay = `${Math.random() * 4}s`;
+        background.appendChild(star);
+      }
+    });
 
     const audioFile = document.getElementById('audioFile');
+    const audioPlayer = document.getElementById('audioPlayer');
+    const canvas = document.getElementById('visualizer');
+    const ctx = canvas.getContext('2d');
     const rainbowToggle = document.getElementById('rainbowToggle');
-    const colorPicker = document.getElementById('colorPicker');
-    const visualizerType = document.getElementById('visualizerType');
-    const volumeSlider = document.getElementById('volume');
+    const fullScreenBtn = document.getElementById('fullScreenBtn');
 
     let rainbow = false;
-    let color = '#ffffff';
-    let type = 'bars';
+    let audioContext, source, analyser, dataArray;
 
-    rainbowToggle.onclick = () => {
+    rainbowToggle.addEventListener('click', () => {
       rainbow = !rainbow;
       rainbowToggle.textContent = rainbow ? 'レインボーモード: ON' : 'レインボーモード: OFF';
-    };
+    });
 
-    colorPicker.oninput = e => color = e.target.value;
-    visualizerType.onchange = e => type = e.target.value;
+    fullScreenBtn.addEventListener('click', () => {
+      if (canvas.requestFullscreen) canvas.requestFullscreen();
+    });
 
-    let audioContext, source, gainNode, analyser, dataArray;
-
-    audioFile.onchange = async (e) => {
-      const file = e.target.files[0];
+    audioFile.addEventListener('change', () => {
+      const file = audioFile.files[0];
       if (!file) return;
-      if (audioContext) audioContext.close();
+      audioPlayer.src = URL.createObjectURL(file);
+      audioPlayer.load();
+      audioPlayer.play();
+      setupAudio();
+    });
 
+    function setupAudio() {
       audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      gainNode = audioContext.createGain();
+      source = audioContext.createMediaElementSource(audioPlayer);
       analyser = audioContext.createAnalyser();
       analyser.fftSize = 256;
       dataArray = new Uint8Array(analyser.frequencyBinCount);
-
-      const audio = document.createElement('audio');
-      audio.src = URL.createObjectURL(file);
-      audio.crossOrigin = 'anonymous';
-      audio.loop = true;
-      await audio.play();
-
-      source = audioContext.createMediaElementSource(audio);
-      source.connect(gainNode);
-      gainNode.connect(analyser);
+      source.connect(analyser);
       analyser.connect(audioContext.destination);
-
-      volumeSlider.oninput = () => gainNode.gain.value = parseFloat(volumeSlider.value);
-
       draw();
-    };
+    }
 
     function draw() {
       requestAnimationFrame(draw);
-      if (!analyser) return;
       analyser.getByteFrequencyData(dataArray);
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      const len = dataArray.length;
-
-      if (type === 'bars') {
-        const barWidth = canvas.width / len;
-        for (let i = 0; i < len; i++) {
-          const val = dataArray[i];
-          const hue = (Date.now() / 10 + i * 4) % 360;
-          ctx.fillStyle = rainbow ? `hsl(${hue},100%,50%)` : color;
-          ctx.fillRect(i * barWidth, canvas.height - val, barWidth - 2, val);
-        }
-      } else if (type === 'wave') {
-        ctx.beginPath();
-        const sliceWidth = canvas.width / len;
-        for (let i = 0; i < len; i++) {
-          const y = (dataArray[i] / 255) * canvas.height;
-          if (i === 0) ctx.moveTo(i * sliceWidth, y);
-          else ctx.lineTo(i * sliceWidth, y);
-        }
-        const hue = (Date.now() / 10) % 360;
-        ctx.strokeStyle = rainbow ? `hsl(${hue},100%,50%)` : color;
-        ctx.lineWidth = 2;
-        ctx.stroke();
+      const barWidth = canvas.width / dataArray.length;
+      for (let i = 0; i < dataArray.length; i++) {
+        const val = dataArray[i];
+        const hue = (Date.now() / 20 + i * 4) % 360;
+        ctx.fillStyle = rainbow ? `hsl(${hue}, 100%, 50%)` : '#fff';
+        ctx.fillRect(i * barWidth, canvas.height - val, barWidth - 2, val);
       }
     }
   </script>
