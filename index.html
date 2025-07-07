@@ -5,21 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Bass Booster with Visualizer</title>
   <link rel="manifest" href="manifest.json" />
-  <link rel=”icon" href="favicon.ico">
   <meta name="theme-color" content="#000000" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Visualizer" />
-  <link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
-  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
-<link rel="shortcut icon" href="/favicon.ico" type="image/x-icon" />
-  <link rel="apple-touch-icon" sizes="152x152" href="apple-touch-icon.png">
-
-<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-<link rel="shortcut icon" href="/favicon.ico" />
-<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
-<meta name="apple-mobile-web-app-title" content="Bass-Booster" />
-<link rel="manifest" href="/site.webmanifest" />
+  <link rel="apple-touch-icon" sizes="152x152" href="/apple-touch-icon.png">
   <style>
     html, body {
       margin: 0;
@@ -27,41 +17,8 @@
       background-color: #000;
       font-family: Arial, sans-serif;
       color: #eee;
-      overflow: hidden;
+      overflow-x: hidden;
       height: 100%;
-    }
-
-    .background {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
-      z-index: 0;
-    }
-
-    .star {
-      position: absolute;
-      background-color: #fff;
-      border-radius: 50%;
-      opacity: 0;
-      animation: twinkle 4s infinite ease-in-out alternate;
-    }
-
-    @keyframes twinkle {
-      0% {
-        opacity: 0;
-        transform: scale(0.5);
-      }
-      50% {
-        opacity: 1;
-        transform: scale(1);
-      }
-      100% {
-        opacity: 0;
-        transform: scale(0.5);
-      }
     }
 
     .container {
@@ -71,10 +28,9 @@
       flex-direction: column;
       align-items: center;
       justify-content: flex-start;
-      height: 100vh;
-      overflow-y: auto;
+      min-height: 100vh;
       box-sizing: border-box;
-      padding: 10px 10px 100px;
+      padding: 20px 10px 100px;
     }
 
     h1 {
@@ -82,7 +38,7 @@
       margin: 10px 0;
     }
 
-    .custom-file-upload, #fullScreenBtn, #rainbowToggle {
+    .custom-file-upload, #fullScreenBtn, #rainbowToggle, #youtubeFetchBtn {
       background-color: #4caf50;
       color: white;
       padding: 10px 15px;
@@ -92,7 +48,7 @@
       margin: 10px;
     }
 
-    input[type='file'] {
+    input[type='file'], input[type='text'] {
       display: none;
     }
 
@@ -138,15 +94,44 @@
       padding: 5px;
       border-radius: 5px;
     }
+
+    .background {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .star {
+      position: absolute;
+      background-color: #fff;
+      border-radius: 50%;
+      opacity: 0;
+      animation: twinkle 4s infinite ease-in-out alternate;
+    }
+
+    @keyframes twinkle {
+      0% { opacity: 0; transform: scale(0.5); }
+      50% { opacity: 1; transform: scale(1); }
+      100% { opacity: 0; transform: scale(0.5); }
+    }
   </style>
 </head>
 <body>
   <div class="background"></div>
   <div class="container">
     <h1>Bass Booster with Visualizer</h1>
+
     <label for="audioFile" class="custom-file-upload">音声ファイルをアップロード (MP3/WAV)</label>
-    <input type="file" id="audioFile" accept="audio/mp3,audio/wav" />
+    <input type="file" id="audioFile" accept="audio/mp3,audio/wav">
     <div id="filenameDisplay" class="filename-display"></div>
+
+    <input type="text" id="youtubeUrl" placeholder="YouTubeのURLを入力" style="width: 80%; max-width: 500px; padding: 10px; margin: 10px; border-radius: 5px; border: none;">
+    <button id="youtubeFetchBtn">YouTubeから再生</button>
+
     <audio id="audioPlayer" controls></audio>
     <canvas id="visualizer" width="800" height="300"></canvas>
     <select id="visualizerType">
@@ -154,6 +139,7 @@
       <option value="circle">円形</option>
       <option value="wave">波形</option>
     </select>
+
     <div class="slider-group">
       <label class="slider-label" for="bass">重低音: <span id="bassVal">+0.0dB</span></label>
       <input type="range" id="bass" min="-30" max="30" value="0" step="0.1">
@@ -167,9 +153,11 @@
       <label class="slider-label" for="rate">再生速度: <span id="rateVal">1.00x</span></label>
       <input type="range" id="rate" min="0.5" max="2" value="1" step="0.01">
     </div>
+
     <button id="fullScreenBtn">フルスクリーン表示</button>
     <button id="rainbowToggle">レインボーモード: OFF</button>
   </div>
+
   <script>
     document.addEventListener('DOMContentLoaded', () => {
       const bg = document.querySelector('.background');
@@ -184,131 +172,25 @@
         s.style.animationDelay = `${Math.random() * 4}s`;
         bg.appendChild(s);
       }
-    });
 
-    const fileInput = document.getElementById('audioFile');
-    const fileName = document.getElementById('filenameDisplay');
-    const audio = document.getElementById('audioPlayer');
-    const canvas = document.getElementById('visualizer');
-    const ctx = canvas.getContext('2d');
-    const rainbowToggle = document.getElementById('rainbowToggle');
-    const fullScreenBtn = document.getElementById('fullScreenBtn');
-    const visualizerType = document.getElementById('visualizerType');
-    const bassSlider = document.getElementById('bass');
-    const pitchSlider = document.getElementById('pitch');
-    const volumeSlider = document.getElementById('volume');
-    const rateSlider = document.getElementById('rate');
-    const bassVal = document.getElementById('bassVal');
-    const pitchVal = document.getElementById('pitchVal');
-    const volumeVal = document.getElementById('volumeVal');
-    const rateVal = document.getElementById('rateVal');
+      const youtubeBtn = document.getElementById('youtubeFetchBtn');
+      const youtubeInput = document.getElementById('youtubeUrl');
+      const audioPlayer = document.getElementById('audioPlayer');
 
-    let rainbow = false;
-    let type = 'bars';
-    let audioContext, source, gainNode, bassFilter, analyser, dataArray;
-
-    visualizerType.addEventListener('change', () => type = visualizerType.value);
-
-    rainbowToggle.addEventListener('click', () => {
-      rainbow = !rainbow;
-      rainbowToggle.textContent = rainbow ? 'レインボーモード: ON' : 'レインボーモード: OFF';
-    });
-
-    fullScreenBtn.addEventListener('click', () => {
-      if (canvas.requestFullscreen) canvas.requestFullscreen();
-    });
-
-    fileInput.addEventListener('change', () => {
-      const file = fileInput.files[0];
-      if (!file) return;
-      fileName.textContent = file.name.replace(/\.[^/.]+$/, "");
-      audio.src = URL.createObjectURL(file);
-      audio.load();
-      audio.play();
-      setupAudio();
-    });
-
-    bassSlider.addEventListener('input', () => bassVal.textContent = `+${parseFloat(bassSlider.value).toFixed(1)}dB`);
-    pitchSlider.addEventListener('input', () => {
-      pitchVal.textContent = `${parseFloat(pitchSlider.value).toFixed(2)}x`;
-      audio.playbackRate = parseFloat(pitchSlider.value);
-      rateSlider.value = pitchSlider.value;
-      rateVal.textContent = pitchVal.textContent;
-    });
-    volumeSlider.addEventListener('input', () => {
-      volumeVal.textContent = `${parseFloat(volumeSlider.value).toFixed(2)}x`;
-      gainNode.gain.value = parseFloat(volumeSlider.value);
-    });
-    rateSlider.addEventListener('input', () => {
-      rateVal.textContent = `${parseFloat(rateSlider.value).toFixed(2)}x`;
-      audio.playbackRate = parseFloat(rateSlider.value);
-      pitchSlider.value = rateSlider.value;
-      pitchVal.textContent = rateVal.textContent;
-    });
-
-    function setupAudio() {
-      audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      source = audioContext.createMediaElementSource(audio);
-      gainNode = audioContext.createGain();
-      bassFilter = audioContext.createBiquadFilter();
-      bassFilter.type = 'lowshelf';
-      bassFilter.frequency.value = 250;
-      analyser = audioContext.createAnalyser();
-      analyser.fftSize = 256;
-      dataArray = new Uint8Array(analyser.frequencyBinCount);
-      source.connect(bassFilter);
-      bassFilter.connect(gainNode);
-      gainNode.connect(analyser);
-      analyser.connect(audioContext.destination);
-      draw();
-    }
-
-    function draw() {
-      requestAnimationFrame(draw);
-      analyser.getByteFrequencyData(dataArray);
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      const w = canvas.width, h = canvas.height, len = dataArray.length;
-
-      if (type === 'bars') {
-        const bw = w / len;
-        for (let i = 0; i < len; i++) {
-          const val = dataArray[i];
-          const hue = (Date.now() / 20 + i * 4) % 360;
-          ctx.fillStyle = rainbow ? `hsl(${hue},100%,50%)` : '#fff';
-          ctx.fillRect(i * bw, h - val, bw - 1, val);
+      youtubeBtn.addEventListener('click', async () => {
+        const url = youtubeInput.value.trim();
+        if (!url) return alert('URLを入力してください');
+        try {
+          const res = await fetch(`https://yt-audio-api.maikanamaikana.workers.dev/?url=${encodeURIComponent(url)}`);
+          const blob = await res.blob();
+          audioPlayer.src = URL.createObjectURL(blob);
+          await audioPlayer.play();
+        } catch (e) {
+          alert('音声の取得に失敗しました');
+          console.error(e);
         }
-      } else if (type === 'circle') {
-        const cx = w / 2, cy = h / 2;
-        const radius = 60;
-        const maxLen = 40;
-        const step = (2 * Math.PI) / len;
-        ctx.lineWidth = 2;
-        for (let i = 0; i < len; i++) {
-          const val = dataArray[i];
-          const angle = i * step;
-          const inner = radius;
-          const outer = radius + (val / 255) * maxLen;
-          const hue = (Date.now() / 20 + i * 4) % 360;
-          ctx.strokeStyle = rainbow ? `hsl(${hue},100%,50%)` : '#fff';
-          ctx.beginPath();
-          ctx.moveTo(cx + inner * Math.cos(angle), cy + inner * Math.sin(angle));
-          ctx.lineTo(cx + outer * Math.cos(angle), cy + outer * Math.sin(angle));
-          ctx.stroke();
-        }
-      } else if (type === 'wave') {
-        const sliceWidth = w / len;
-        ctx.beginPath();
-        for (let i = 0; i < len; i++) {
-          const y = (dataArray[i] / 255) * h;
-          if (i === 0) ctx.moveTo(i * sliceWidth, y);
-          else ctx.lineTo(i * sliceWidth, y);
-        }
-        const hue = (Date.now() / 20) % 360;
-        ctx.strokeStyle = rainbow ? `hsl(${hue},100%,50%)` : '#fff';
-        ctx.lineWidth = 2;
-        ctx.stroke();
-      }
-    }
+      });
+    });
   </script>
 </body>
 </html>
